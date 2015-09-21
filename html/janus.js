@@ -1211,51 +1211,85 @@ function Janus(gatewayCallbacks) {
 			pluginHandle.consentDialog(true);
 			var videoSupport = isVideoSendEnabled(media);
 			if(videoSupport === true && media != undefined && media != null) {
+				if (media.facing) {
+					MediaStreamTrack.getSources(function(sources) {
+							var videoSources = [];
+							var videoSource = null;
+							for (var i = 0, l = sources.length; i < l; i++) {
+							if (sources[i]["kind"] === "video") {
+							videoSources.push(sources[i]);
+							}
+							if (sources[i]["facing"] === media.facing) {
+							videoSource = sources[i];
+							break ;
+							}
+							}
+							if (!videoSources.length) {
+							alert("ERROR - No video sources found.");
+							return ;
+							}
+							if (!videoSource) {
+							alert("ERROR - Couldn't find the required camera, falling back to existing one.");
+							videoSource = videoSources[0];
+							}
+							videoSupport["mandatory"]["sourceId"] = videoSource["id"];
+					});
+				}
 				if(media.video && media.video != 'screen') {
 					var width = 0;
 					var height = 0, maxHeight = 0;
-					if(media.video === 'lowres') {
-						// Small resolution, 4:3
-						height = 240;
-						maxHeight = 240;
-						width = 320;
-					} else if(media.video === 'lowres-16:9') {
-						// Small resolution, 16:9
-						height = 180;
-						maxHeight = 180;
-						width = 320;
-					} else if(media.video === 'hires' || media.video === 'hires-16:9' ) {
+					if (media.video.indexOf('lowres') != -1) {
+						if (media.video.indexOf('16:9') == -1) {
+							// Small resolution, 4:3
+							height = 240;
+							maxHeight = 240;
+							width = 320;
+						} else {
+							// Small resolution, 16:9
+							height = 180;
+							maxHeight = 180;
+							width = 320;
+						}
+					} else if (media.video.indexOf('hires') != -1) {
 						// High resolution is only 16:9
 						height = 720;
 						maxHeight = 720;
 						width = 1280;
-						if(navigator.mozGetUserMedia) {
+						if (navigator.mozGetUserMedia) {
 							var firefoxVer = parseInt(window.navigator.userAgent.match(/Firefox\/(.*)/)[1], 10);
-							if(firefoxVer < 38) {
+							if (firefoxVer < 38) {
 								// Unless this is and old Firefox, which doesn't support it
-								Janus.warn(media.video + " unsupported, falling back to stdres (old Firefox)");
+								Janus.log(media.video + " unsupported, falling back to stdres (old Firefox)");
 								height = 480;
 								maxHeight = 480;
-								width  = 640;
+								width = 640;
 							}
 						}
-					} else if(media.video === 'stdres') {
-						// Normal resolution, 4:3
-						height = 480;
-						maxHeight = 480;
-						width  = 640;
-					} else if(media.video === 'stdres-16:9') {
-						// Normal resolution, 16:9
-						height = 360;
-						maxHeight = 360;
-						width = 640;
+					} else if(media.video.indexOf('stdres') != -1) {
+						if (media.video.indexOf('16:9') == -1) {
+							// Normal resolution, 4:3
+							height = 480;
+							maxHeight = 480;
+							width = 640;
+						} else {
+							// Normal resolution, 16:9
+							height = 480;
+							maxHeight = 480;
+							width = 854;
+						}
 					} else {
-						Janus.log("Default video setting (" + media.video + ") is stdres 4:3");
-						height = 480;
-						maxHeight = 480;
-						width = 640;
+						Janus.log("Default video setting (" + media.video + ") is stdres");
+						if (media.video.indexOf('16:9') == -1) {
+							height = 480;
+							maxHeight = 480;
+							width = 640;
+						} else {
+							height = 480;
+							maxHeight = 480;
+							width = 854;
+						}
 					}
-					Janus.log("Adding media constraint " + media.video);
+					Janus.log("Adding media resolutions constraint from " + media.video);
 					if(navigator.mozGetUserMedia) {
 						var firefoxVer = parseInt(window.navigator.userAgent.match(/Firefox\/(.*)/)[1], 10);
 						if(firefoxVer < 38) {
@@ -1274,16 +1308,30 @@ function Janus(gatewayCallbacks) {
 						}
 					} else {
 						videoSupport = {
-						    'mandatory': {
-						        'maxHeight': maxHeight,
-						        'minHeight': height,
-						        'maxWidth':  width,
-						        'minWidth':  width
-						    },
-						    'optional': []
+							'mandatory': {
+								'maxHeight': maxHeight,
+								'minHeight': height,
+								'maxWidth': width,
+								'minWidth': width
+							},
+							'optional': []
 						};
 					}
-					Janus.debug(videoSupport);
+					var hasFPS = media.video.match(/([1-9][0-9]*)fps/);
+					if (hasFPS) {
+						var fps = parseInt(hasFPS[0]);
+						Janus.log("Adding fps constraint from " + media.video + " (" + fps + ")");
+						if(navigator.mozGetUserMedia) {
+							var firefoxVer = parseInt(window.navigator.userAgent.match(/Firefox\/(.*)/)[1], 10);
+							if(firefoxVer >=  38) {
+								videoSupport['frameRate'] = {'ideal': fps};
+							}
+						} else {
+							videoSupport['mandatory']['minFrameRate'] = fps;
+							videoSupport['mandatory']['maxFrameRate'] = fps;
+						}
+					}
+					Janus.log(videoSupport);
 				} else if(media.video === 'screen') {
 					// Not a webcam, but screen capture
 					if(window.location.protocol !== 'https:') {
