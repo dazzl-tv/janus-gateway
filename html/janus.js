@@ -1255,11 +1255,11 @@ function Janus(gatewayCallbacks) {
 						height = 720;
 						maxHeight = 720;
 						width = 1280;
-						if (navigator.mozGetUserMedia) {
+						if(navigator.mozGetUserMedia) {
 							var firefoxVer = parseInt(window.navigator.userAgent.match(/Firefox\/(.*)/)[1], 10);
-							if (firefoxVer < 38) {
+							if(firefoxVer < 38) {
 								// Unless this is and old Firefox, which doesn't support it
-								Janus.log(media.video + " unsupported, falling back to stdres (old Firefox)");
+								Janus.warn(media.video + " unsupported, falling back to stdres (old Firefox)");
 								height = 480;
 								maxHeight = 480;
 								width = 640;
@@ -1308,13 +1308,13 @@ function Janus(gatewayCallbacks) {
 						}
 					} else {
 						videoSupport = {
-							'mandatory': {
-								'maxHeight': maxHeight,
-								'minHeight': height,
-								'maxWidth': width,
-								'minWidth': width
-							},
-							'optional': []
+						    'mandatory': {
+						        'maxHeight': maxHeight,
+						        'minHeight': height,
+						        'maxWidth':  width,
+						        'minWidth':  width
+						    },
+						    'optional': []
 						};
 					}
 					var hasFPS = media.video.match(/([1-9][0-9]*)fps/);
@@ -1331,7 +1331,7 @@ function Janus(gatewayCallbacks) {
 							videoSupport['mandatory']['maxFrameRate'] = fps;
 						}
 					}
-					Janus.log(videoSupport);
+					Janus.debug(videoSupport);
 				} else if(media.video === 'screen') {
 					// Not a webcam, but screen capture
 					if(window.location.protocol !== 'https:') {
