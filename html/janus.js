@@ -1236,98 +1236,81 @@ function Janus(gatewayCallbacks) {
 					});
 				}
 				if(media.video && media.video != 'screen') {
-					var width = 0;
-					var height = 0, maxHeight = 0;
+					var minWidth = 0;
+					var maxWidth = 0;
+					var minAspectRatio = 0;
+					var maxAspectRatio = 0;
+					if (media.video.indexOf('4:3') !== -1) {
+						maxAspectRatio = 1.334;
+					}
+					else {
+						minAspectRatio = 1.776;
+					}
 					if (media.video.indexOf('lowres') != -1) {
-						if (media.video.indexOf('16:9') == -1) {
-							// Small resolution, 4:3
-							height = 240;
-							maxHeight = 240;
-							width = 320;
-						} else {
-							// Small resolution, 16:9
-							height = 180;
-							maxHeight = 180;
-							width = 320;
-						}
+						maxWidth = 320;
+					} else if (media.video.indexOf('stdres') != -1) {
+						maxWidth = 640;
 					} else if (media.video.indexOf('hires') != -1) {
 						// High resolution is only 16:9
-						height = 720;
-						maxHeight = 720;
-						width = 1280;
-						if(navigator.mozGetUserMedia) {
+						maxAspectRatio = 0;
+						minAspectRatio = 1.776;
+						minWidth = 1280;
+						if (navigator.mozGetUserMedia) {
 							var firefoxVer = parseInt(window.navigator.userAgent.match(/Firefox\/(.*)/)[1], 10);
-							if(firefoxVer < 38) {
+							if (firefoxVer < 38) {
 								// Unless this is and old Firefox, which doesn't support it
 								Janus.warn(media.video + " unsupported, falling back to stdres (old Firefox)");
-								height = 480;
-								maxHeight = 480;
-								width = 640;
+								maxWidth = 640;
+								minAspectRatio = 0;
 							}
 						}
-					} else if(media.video.indexOf('stdres') != -1) {
-						if (media.video.indexOf('16:9') == -1) {
-							// Normal resolution, 4:3
-							height = 480;
-							maxHeight = 480;
-							width = 640;
-						} else {
-							// Normal resolution, 16:9
-							height = 480;
-							maxHeight = 480;
-							width = 854;
-						}
 					} else {
-						Janus.log("Default video setting (" + media.video + ") is stdres");
-						if (media.video.indexOf('16:9') == -1) {
-							height = 480;
-							maxHeight = 480;
-							width = 640;
-						} else {
-							height = 480;
-							maxHeight = 480;
-							width = 854;
-						}
+						Janus.debug("Default video setting (" + media.video + ") is stdres");
+						maxWidth = 640;
 					}
-					Janus.log("Adding media resolutions constraint from " + media.video);
+					Janus.debug("Adding media resolutions constraint from " + media.video);
 					if(navigator.mozGetUserMedia) {
 						var firefoxVer = parseInt(window.navigator.userAgent.match(/Firefox\/(.*)/)[1], 10);
 						if(firefoxVer < 38) {
 							videoSupport = {
-								'require': ['height', 'width'],
-								'height': {'max': maxHeight, 'min': height},
-								'width':  {'max': width,  'min': width}
+require: [ "width" ],
+				 width: { max: maxWidth }
 							};
 						} else {
 							// http://stackoverflow.com/questions/28282385/webrtc-firefox-constraints/28911694#28911694
 							// https://github.com/meetecho/janus-gateway/pull/246
-							videoSupport = {
-								'height': {'ideal': height},
-								'width':  {'ideal': width}
-							};
+							videoSupport = {};
+							videoSupport["width"] = { ideal: (maxWidth > 0) ? maxWidth : minWidth };
+							videoSupport["aspectRatio"] = { ideal: (minAspectRatio > 0) ? minAspectRatio : maxAspectRatio };
 						}
 					} else {
 						videoSupport = {
-						    'mandatory': {
-						        'maxHeight': maxHeight,
-						        'minHeight': height,
-						        'maxWidth':  width,
-						        'minWidth':  width
-						    },
-						    'optional': []
+mandatory: {},
+					 optional: []
 						};
+						if (maxWidth > 0) {
+							videoSupport["mandatory"]["maxWidth"] = maxWidth;
+						}
+						else {
+							videoSupport["mandatory"]["minWidth"] = minWidth;
+						}
+						if (minAspectRatio > 0) {
+							videoSupport["mandatory"]["minAspectRatio"] = minAspectRatio;
+						}
+						else {
+							videoSupport["mandatory"]["maxAspectRatio"] = maxAspectRatio;
+						}
 					}
 					var hasFPS = media.video.match(/([1-9][0-9]*)fps/);
 					if (hasFPS) {
 						var fps = parseInt(hasFPS[0]);
-						Janus.log("Adding fps constraint from " + media.video + " (" + fps + ")");
+						Janus.debug("Adding fps constraint from " + media.video + " (" + fps + ")");
 						if(navigator.mozGetUserMedia) {
 							var firefoxVer = parseInt(window.navigator.userAgent.match(/Firefox\/(.*)/)[1], 10);
 							if(firefoxVer >=  38) {
-								videoSupport['frameRate'] = {'ideal': fps};
+								videoSupport["advanced"] = [{ frameRate: {'ideal': fps} }];
 							}
 						} else {
-							videoSupport['mandatory']['minFrameRate'] = fps;
 							videoSupport['mandatory']['maxFrameRate'] = fps;
 						}
 					}
