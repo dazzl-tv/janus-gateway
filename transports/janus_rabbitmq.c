@@ -127,6 +127,7 @@ typedef struct janus_rabbitmq_client {
 typedef struct janus_rabbitmq_response {
 	gboolean admin;			/* Whether this is a Janus or Admin API response */
 	gchar *correlation_id;	/* Correlation ID, if any */
+	amqp_bytes_t reply_to;	/* Reply to queue */
 	json_t *payload;		/* Payload to send to the client */
 } janus_rabbitmq_response;
 static janus_rabbitmq_response exit_message;
@@ -139,6 +140,7 @@ void *janus_rmq_out_thread(void *data);
 /* We only handle a single client per time, as the queues are fixed */
 static janus_rabbitmq_client *rmq_client = NULL;
 
+char *from_janus = NULL;
 
 /* Transport implementation */
 int janus_rabbitmq_init(janus_transport_callbacks *callback, const char *config_path) {
@@ -193,7 +195,7 @@ int janus_rabbitmq_init(janus_transport_callbacks *callback, const char *config_
 		password = g_strdup("guest");
 
 	/* Now check if the Janus API must be supported */
-	const char *to_janus = NULL, *from_janus = NULL;
+	const char *to_janus = NULL;
 	const char *to_janus_admin = NULL, *from_janus_admin = NULL;
 	item = janus_config_get_item_drilldown(config, "general", "enable");
 	if(!item || !item->value || !janus_is_true(item->value)) {
@@ -468,6 +470,11 @@ int janus_rabbitmq_send_message(void *transport, void *request_id, gboolean admi
 	response->admin = admin;
 	response->payload = message;
 	response->correlation_id = (char *)request_id;
+	JANUS_LOG(LOG_HUGE, "Default queue response : %s\n", (char *)rmq_client->from_janus_queue.bytes);
+	if(strcmp((char *)rmq_client->from_janus_queue.bytes, "from-janus") != 0 || rmq_client->from_janus_queue.bytes != NULL) {
+		response->reply_to = rmq_client->from_janus_queue;
+		JANUS_LOG(LOG_HUGE, "Complete response with reply to : %s\n", (char *)response->reply_to.bytes);
+	}
 	g_async_queue_push(rmq_client->messages, response);
 	return 0;
 }
@@ -537,7 +544,14 @@ void *janus_rmq_in_thread(void *data) {
 			continue;
 		amqp_basic_properties_t *p = (amqp_basic_properties_t *)frame.payload.properties.decoded;
 		if(p->_flags & AMQP_BASIC_REPLY_TO_FLAG) {
-			JANUS_LOG(LOG_VERB, "  -- Reply-to: %.*s\n", (int) p->reply_to.len, (char *) p->reply_to.bytes);
+			char *reply = NULL;
+			reply = (char *)g_malloc0(p->reply_to.len+1);
+			sprintf(reply, "%.*s", (int) p->reply_to.len, (char *) p->reply_to.bytes);
+			rmq_client->from_janus_queue = p->reply_to;
+			JANUS_LOG(LOG_VERB, "  -- reply-to : %s\n", reply);
+		} else {
+			rmq_client->from_janus_queue = amqp_cstring_bytes(from_janus);
+			JANUS_LOG(LOG_VERB, "  -- reply-to (DEFAULT) : %s\n", (char *)rmq_client->from_janus_queue.bytes);
 		}
 		char *correlation = NULL;
 		if(p->_flags & AMQP_BASIC_CORRELATION_ID_FLAG) {
@@ -599,7 +613,15 @@ void *janus_rmq_out_thread(void *data) {
 			amqp_basic_properties_t props;
 			props._flags = 0;
 			props._flags |= AMQP_BASIC_REPLY_TO_FLAG;
-			props.reply_to = amqp_cstring_bytes("Janus");
+			if(response->reply_to.bytes) {
+				props.reply_to = response->reply_to;
+				JANUS_LOG(LOG_VERB, "Use reply to : %s\n", (char *)props.reply_to.bytes);
+			} else {
+				// props.reply_to = amqp_cstring_bytes("Janus");
+				props.reply_to = rmq_client->from_janus_queue;
+				JANUS_LOG(LOG_VERB, "Don't use reply to\n");
+				rmq_client->from_janus_queue = response->reply_to;
+			}
 			if(response->correlation_id) {
 				props._flags |= AMQP_BASIC_CORRELATION_ID_FLAG;
 				props.correlation_id = amqp_cstring_bytes(response->correlation_id);
@@ -608,7 +630,7 @@ void *janus_rmq_out_thread(void *data) {
 			props.content_type = amqp_cstring_bytes("application/json");
 			amqp_bytes_t message = amqp_cstring_bytes(payload_text);
 			int status = amqp_basic_publish(rmq_client->rmq_conn, rmq_client->rmq_channel, amqp_empty_bytes,
-				response->admin ? rmq_client->from_janus_admin_queue : rmq_client->from_janus_queue,
+				response->admin ? rmq_client->from_janus_admin_queue : props.reply_to,
 				0, 0, &props, message);
 			if(status != AMQP_STATUS_OK) {
 				JANUS_LOG(LOG_ERR, "Error publishing... %d, %s\n", status, amqp_error_string2(status));
