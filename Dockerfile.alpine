@@ -1,4 +1,4 @@
-FROM alpine
+FROM alpine:3.7
 MAINTAINER Jeremy VAILLANT <jeremy.vaillant@dazzl.tv>
 
 ARG USRSCTP_VERSION=0.9.3.0
