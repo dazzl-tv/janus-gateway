@@ -13,6 +13,7 @@ ARG JANUS_TRANSPORT_WEBSOCKET=--disable-websockets
 ARG JANUS_TRANSPORT_RABBIT_MQ=--enable-rabbitmq
 ARG JANUS_TRANSPORT_MQTT=--disable-mqtt
 ARG JANUS_TRANSPORT_UNIX_SOCKET=--disable-unix-sockets
+ARG JANUS_TRANSPORT_NANO_MSG=--disable-nanomsg
 
 ARG JANUS_PLUGIN_AUDIOBRIDGE=--disable-plugin-audiobridge
 ARG JANUS_PLUGIN_DUKTAPE=--disable-plugin-duktape
@@ -39,7 +40,6 @@ RUN apk add --update --no-cache --virtual .build-dependencies \
     popt-dev xmlto openssl-dev \
   && apk add --no-cache \
     libnice jansson glib libogg ffmpeg libc6-compat \
-    # libnice jansson glib libogg ffmpeg libc6-compat xmlto openssl-dev \
   # INSTALL USRSCTP
   && curl -L https://github.com/sctplab/usrsctp/archive/$USRSCTP_VERSION.tar.gz | tar zx \
   && cd usrsctp-$USRSCTP_VERSION \
