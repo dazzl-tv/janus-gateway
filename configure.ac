@@ -293,7 +293,7 @@ AC_ARG_ENABLE([systemd-sockets],
 PKG_CHECK_MODULES([JANUS],
                   [
                     glib-2.0 >= $glib_version
-					libconfig
+                    libconfig
                     nice
                     jansson >= $jansson_version
                     libssl >= $ssl_version
