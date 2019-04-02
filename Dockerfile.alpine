@@ -1,7 +1,8 @@
 FROM alpine:3.7
 MAINTAINER Jeremy VAILLANT <jeremy.vaillant@dazzl.tv>
 
-ARG USRSCTP_VERSION=0.9.3.0
+ARG USRSCTP=0.9.3.0
+ARG RABBITC=2ca1774
 
 ARG JANUS_BORINGSSL=--enable-boringssl
 ARG JANUS_POST_PROCESSING=--enable-post-processing
@@ -40,9 +41,8 @@ RUN apk add --update --no-cache --virtual .build-dependencies \
     popt-dev xmlto openssl-dev \
   && apk add --no-cache \
     libnice jansson glib libogg ffmpeg libc6-compat libconfig libtool libsrtp \
-  # INSTALL USRSCTP
-  && curl -L https://github.com/sctplab/usrsctp/archive/$USRSCTP_VERSION.tar.gz | tar zx \
-  && cd usrsctp-$USRSCTP_VERSION \
+  && curl -L https://github.com/sctplab/usrsctp/archive/$USRSCTP.tar.gz | tar zx \
+  && cd usrsctp-$USRSCTP \
   && ./bootstrap \
   && ./configure --prefix=/usr \
   && make \
@@ -62,26 +62,15 @@ RUN apk add --update --no-cache --virtual .build-dependencies \
   && mkdir -p /opt/boringssl/lib \
   && cp build/ssl/libssl.a /opt/boringssl/lib/ \
   && cp build/crypto/libcrypto.a /opt/boringssl/lib/ \
+  && cd \
   # INSTALL RABBITMQ-C
-  && git clone --depth 1 https://github.com/alanxz/rabbitmq-c rabbitmq-c \
+  && git clone https://github.com/alanxz/rabbitmq-c \
   && cd rabbitmq-c \
+  && git checkout $RABBITC \
   && git submodule init \
   && git submodule update \
-  && mkdir -p build \
-  && cd build \
-  && cmake \
-    -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_C_FLAGS="$CFLAGS" \
-    -DENABLE_SSL_SUPPORT=ON \
-    -DBUILD_TESTS=OFF \
-    -DBUILD_EXAMPLES=OFF \
-    -DBUILD_TOOLS=OFF \
-    -DBUILD_TOOLS_DOCS=OFF \
-    -DBUILD_API_DOCS=OFF \
-    -DBUILD_SHARED_LIBS=ON \
-    -DBUILD_STATIC_LIBS=ON \
-    .. \
+  && autoreconf -i \
+  && ./configure --prefix=/usr \
   && make \
   && make install \
   && cd \
@@ -117,7 +106,7 @@ RUN apk add --update --no-cache --virtual .build-dependencies \
   # CLEAN CONTAINER
   && cd \
   && apk del --purge .build-dependencies \
-  && rm -rf usrsctp-$USRSCTP_VERSION \
+  && rm -rf usrsctp-$USRSCTP \
     boringssl \
     janus-gateway \
     rabbitmq-c \
