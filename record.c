@@ -70,8 +70,10 @@ static void janus_recorder_free(const janus_refcount *recorder_ref) {
 	recorder->dir = NULL;
 	g_free(recorder->filename);
 	recorder->filename = NULL;
-        g_free(recorder->initial_filename);
-        recorder->initial_filename = NULL;
+#ifdef RECORD_MULTIPART	
+    g_free(recorder->initial_filename);
+    recorder->initial_filename = NULL;
+#endif	
 	fclose(recorder->file);
 	recorder->file = NULL;
 	g_free(recorder->codec);
@@ -103,12 +105,14 @@ janus_recorder *janus_recorder_create(const char *dir, const char *codec, const 
 	janus_recorder *rc = g_malloc0(sizeof(janus_recorder));
 	rc->dir = NULL;
 	rc->filename = NULL;
-	rc->initial_filename = NULL;
 	rc->file = NULL;
 	rc->codec = g_strdup(codec);
 	rc->created = janus_get_real_time();
+#ifdef RECORD_MULTIPART	
+	rc->initial_filename = NULL;
 	rc->cptr_suffix_filename = 0;
 	rc->cptr_nb_frames = 0;
+#endif
 	const char *rec_dir = NULL;
 	const char *rec_file = NULL;
 	char *copy_for_parent = NULL;
@@ -278,12 +282,15 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 		}
 		tot -= temp;
 	}
+#ifdef RECORD_MULTIPART		
 	fflush(recorder->file);
 	fsync(recorder->file);
+ #endif
 
 	/* Done */
 	janus_mutex_unlock_nodebug(&recorder->mutex);
 
+#ifdef RECORD_MULTIPART	
 	// Manage part files
 	// VIDEO
 	if      (recorder->type == JANUS_RECORDER_VIDEO)
@@ -343,6 +350,7 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 			recorder->cptr_nb_frames++;
 		}
 	}
+#endif	
 
 	return 0;
 }
