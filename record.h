@@ -36,12 +36,18 @@ typedef enum janus_recorder_medium {
 	JANUS_RECORDER_DATA
 } janus_recorder_medium;
 
+#define NB_MAX_FRAME_VIDEO	10000
+
+#define NB_MAX_FRAME_AUDIO 	10000
+
 /*! \brief Structure that represents a recorder */
 typedef struct janus_recorder {
 	/*! \brief Absolute path to the directory where the recorder file is stored */
 	char *dir;
 	/*! \brief Filename of this recorder file */
 	char *filename;
+	/*! initial filename */
+	char *initial_filename;
 	/*! \brief Recording file */
 	FILE *file;
 	/*! \brief Codec the packets to record are encoded in ("vp8", "vp9", "h264", "opus", "pcma", "pcmu", "g722") */
@@ -60,6 +66,10 @@ typedef struct janus_recorder {
 	volatile gint destroyed;
 	/*! \brief Reference counter for this instance */
 	janus_refcount ref;
+	/* counter for the indent file */
+	gint64 cptr_suffix_filename;
+	/* counter for the number of frames */
+	gint64 cptr_nb_frames;
 } janus_recorder;
 
 /*! \brief Initialize the recorder code

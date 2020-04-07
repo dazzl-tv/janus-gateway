@@ -70,6 +70,8 @@ static void janus_recorder_free(const janus_refcount *recorder_ref) {
 	recorder->dir = NULL;
 	g_free(recorder->filename);
 	recorder->filename = NULL;
+        g_free(recorder->initial_filename);
+        recorder->initial_filename = NULL;
 	fclose(recorder->file);
 	recorder->file = NULL;
 	g_free(recorder->codec);
@@ -101,9 +103,12 @@ janus_recorder *janus_recorder_create(const char *dir, const char *codec, const 
 	janus_recorder *rc = g_malloc0(sizeof(janus_recorder));
 	rc->dir = NULL;
 	rc->filename = NULL;
+	rc->initial_filename = NULL;
 	rc->file = NULL;
 	rc->codec = g_strdup(codec);
 	rc->created = janus_get_real_time();
+	rc->cptr_suffix_filename = 0;
+	rc->cptr_nb_frames = 0;
 	const char *rec_dir = NULL;
 	const char *rec_file = NULL;
 	char *copy_for_parent = NULL;
@@ -273,8 +278,72 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 		}
 		tot -= temp;
 	}
+	fflush(recorder->file);
+	fsync(recorder->file);
+
 	/* Done */
 	janus_mutex_unlock_nodebug(&recorder->mutex);
+
+	// Manage part files
+	// VIDEO
+	if      (recorder->type == JANUS_RECORDER_VIDEO)
+	{
+		if (recorder->cptr_nb_frames == NB_MAX_FRAME_VIDEO-1)
+		{
+			if (recorder->initial_filename == NULL) {
+				recorder->initial_filename = strdup(recorder->filename);
+			}
+
+			// Flush and close the previous filename
+			if(recorder->file != NULL){
+				fclose(recorder->file);
+			}
+			// Increment the suffix
+			recorder->cptr_suffix_filename++;
+			// Make the new file name and free
+			char newname[1024];
+			memset(newname, 0, 1024);
+			g_snprintf(newname, 1024, "%s/%s.%d", recorder->dir, recorder->initial_filename, recorder->cptr_suffix_filename);
+			g_free(recorder->filename);
+			recorder->filename = g_strdup(newname);
+			// Open the new file
+			recorder->file = fopen(recorder->filename, "wb");
+			JANUS_LOG(LOG_INFO, "Creating new video record file : '%s' ", recorder->filename);
+			recorder->cptr_nb_frames = 0;
+		} else {
+			recorder->cptr_nb_frames++;
+		}
+	}
+	// AUDIO
+	else if (recorder->type == JANUS_RECORDER_AUDIO)
+	{
+		if (recorder->cptr_nb_frames == NB_MAX_FRAME_AUDIO-1)
+		{
+			if (recorder->initial_filename == NULL) {
+				recorder->initial_filename = strdup(recorder->filename);
+			}
+
+			// Flush and close the previous filename
+			if(recorder->file != NULL){
+				fclose(recorder->file);
+			}
+			// Increment the suffix
+			recorder->cptr_suffix_filename++;
+			// Make the new file name and free
+			char newname[1024];
+			memset(newname, 0, 1024);
+			g_snprintf(newname, 1024, "%s/%s.%d", recorder->dir, recorder->initial_filename, recorder->cptr_suffix_filename);
+			g_free(recorder->filename);
+			recorder->filename = g_strdup(newname);
+			// Open the new file
+			recorder->file = fopen(recorder->filename, "wb");
+			JANUS_LOG(LOG_INFO, "Creating new audio record file : '%s' ", recorder->filename);
+			recorder->cptr_nb_frames = 0;
+		} else {
+			recorder->cptr_nb_frames++;
+		}
+	}
+
 	return 0;
 }
 
