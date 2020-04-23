@@ -2862,7 +2862,7 @@ void janus_transportso_close(gpointer key, gpointer value, gpointer user_data) {
 
 /* Transport callback interface */
 void janus_transport_incoming_request(janus_transport *plugin, janus_transport_session *transport, void *request_id, gboolean admin, json_t *message, json_error_t *error) {
-	JANUS_LOG(LOG_VERB, "Got %s API request from %s (%p)\n", admin ? "an admin" : "a Janus", plugin->get_package(), transport);
+	JANUS_LOG(LOG_HUGE, "Got %s API request from %s (%p)\n", admin ? "an admin" : "a Janus", plugin->get_package(), transport);
 	/* Create a janus_request instance to handle the request */
 	janus_request *request = janus_request_new(plugin, transport, request_id, admin, message);
 	/* Enqueue the request, the thread will pick it up */
