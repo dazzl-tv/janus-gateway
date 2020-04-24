@@ -986,7 +986,7 @@ int janus_process_incoming_request(janus_request *request) {
 	/* What is this? */
 	if(!strcasecmp(message_text, "keepalive")) {
 		/* Just a keep-alive message, reply with an ack */
-		JANUS_LOG(LOG_VERB, "Got a keep-alive on session %"SCNu64"\n", session_id);
+		JANUS_LOG(LOG_HUGE, "Got a keep-alive on session %"SCNu64"\n", session_id);
 		json_t *reply = janus_create_message("ack", session_id, transaction_text);
 		/* Send the success reply */
 		ret = janus_process_success(request, reply);
