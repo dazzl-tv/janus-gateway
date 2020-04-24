@@ -285,7 +285,7 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 #ifdef RECORD_MULTIPART		
 	fflush(recorder->file);
 	fsync(recorder->file);
- #endif
+#endif
 
 	/* Done */
 	janus_mutex_unlock_nodebug(&recorder->mutex);
@@ -293,7 +293,7 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 #ifdef RECORD_MULTIPART	
 	// Manage part files
 	// VIDEO
-	if      (recorder->type == JANUS_RECORDER_VIDEO)
+	if (recorder->type == JANUS_RECORDER_VIDEO)
 	{
 		if (recorder->cptr_nb_frames == NB_MAX_FRAME_VIDEO-1)
 		{
@@ -315,7 +315,7 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 			recorder->filename = g_strdup(newname);
 			// Open the new file
 			recorder->file = fopen(recorder->filename, "wb");
-			JANUS_LOG(LOG_INFO, "Creating new video record file : '%s' ", recorder->filename);
+			JANUS_LOG(LOG_HUGE, "Creating new video record file : '%s' \n", recorder->filename);
 			recorder->cptr_nb_frames = 0;
 		} else {
 			recorder->cptr_nb_frames++;
