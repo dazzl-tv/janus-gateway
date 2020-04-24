@@ -739,7 +739,7 @@ void *janus_rmq_in_thread(void *data) {
 		}
 		JANUS_LOG(LOG_HUGE, "Got %"SCNu64"/%"SCNu64" bytes from the %s queue (%"SCNu64")\n",
 			received, total, admin ? "admin API" : "Janus API", frame.payload.body_fragment.len);
-		JANUS_LOG(LOG_VERB, "%s\n", payload);
+		JANUS_LOG(LOG_VERB, "%s", payload);
 		/* Parse the JSON payload */
 		json_error_t error;
 		json_t *root = json_loadb(payload, frame.payload.body_fragment.len, 0, &error);
@@ -752,7 +752,7 @@ void *janus_rmq_in_thread(void *data) {
 	return NULL;
 }
 
-static void _janus_rmq_out_log(char *payload_text)
+static void _dazzl_janus_rmq_out_log(char *payload_text, janus_rabbitmq_response *response)
 {
   gchar **v;
   gchar *printed_payload;
@@ -765,9 +765,12 @@ static void _janus_rmq_out_log(char *payload_text)
     return;
   }
 
+  JANUS_LOG(LOG_HUGE, "Sending %s API message to RabbitMQ (%zu bytes)\n",
+            response->admin ? "Admin" : "Janus", strlen(payload_text));
+
   /* remove '/n's in payload to print on 1 line only */
   v = g_strsplit(payload_text, "\n", -1);
-  printed_payload = g_strjoinv(NULL, v);
+  printed_payload = g_strjoinv("", v);
   g_strfreev(v);
 	JANUS_LOG(LOG_VERB, "%s\n", printed_payload);
   g_free(printed_payload);
@@ -790,8 +793,7 @@ void *janus_rmq_out_thread(void *data) {
 			janus_mutex_lock(&rmq_client->mutex);
 			/* Gotcha! Convert json_t to string */
       char *payload_text = response->payload;
-      JANUS_LOG(LOG_HUGE, "Sending %s API message to RabbitMQ (%zu bytes)\n", response->admin ? "Admin" : "Janus", strlen(payload_text));
-      _janus_rmq_out_log(payload_text);
+      _dazzl_janus_rmq_out_log(payload_text, response);
 			amqp_basic_properties_t props;
 			props._flags = 0;
 			props._flags |= AMQP_BASIC_REPLY_TO_FLAG;
