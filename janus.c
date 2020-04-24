@@ -1140,7 +1140,7 @@ int janus_process_incoming_request(janus_request *request) {
 			goto jsondone;
 		}
 		janus_plugin *plugin_t = (janus_plugin *)handle->app;
-		JANUS_LOG(LOG_VERB, "[%"SCNu64"] There's a message for %s\n", handle->handle_id, plugin_t->get_name());
+		JANUS_LOG(LOG_HUGE, "[%"SCNu64"] There's a message for %s\n", handle->handle_id, plugin_t->get_name());
 		JANUS_VALIDATE_JSON_OBJECT(root, body_parameters,
 			error_code, error_cause, FALSE,
 			JANUS_ERROR_MISSING_MANDATORY_ELEMENT, JANUS_ERROR_INVALID_ELEMENT_TYPE);
@@ -2932,7 +2932,7 @@ void janus_transport_notify_event(janus_transport *plugin, void *transport, json
 }
 
 void janus_transport_task(gpointer data, gpointer user_data) {
-	JANUS_LOG(LOG_VERB, "Transport task pool, serving request\n");
+	JANUS_LOG(LOG_HUGE, "Transport task pool, serving request\n");
 	janus_request *request = (janus_request *)data;
 	if(request == NULL) {
 		JANUS_LOG(LOG_ERR, "Missing request\n");
@@ -3100,7 +3100,7 @@ int janus_plugin_push_event(janus_plugin_session *plugin_session, janus_plugin *
 		}
 	}
 	/* Send the event */
-	JANUS_LOG(LOG_VERB, "[%"SCNu64"] Sending event to transport...\n", ice_handle->handle_id);
+	JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Sending event to transport...\n", ice_handle->handle_id);
 	janus_session_notify_event(session, event);
 
 	if((restart || janus_flags_is_set(&ice_handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_RESEND_TRICKLES))

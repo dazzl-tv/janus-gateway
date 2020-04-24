@@ -737,7 +737,7 @@ void *janus_rmq_in_thread(void *data) {
 			received += frame.payload.body_fragment.len;
 			index = payload+received;
 		}
-		JANUS_LOG(LOG_VERB, "Got %"SCNu64"/%"SCNu64" bytes from the %s queue (%"SCNu64")\n",
+		JANUS_LOG(LOG_HUGE, "Got %"SCNu64"/%"SCNu64" bytes from the %s queue (%"SCNu64")\n",
 			received, total, admin ? "admin API" : "Janus API", frame.payload.body_fragment.len);
 		JANUS_LOG(LOG_VERB, "%s\n", payload);
 		/* Parse the JSON payload */
@@ -750,6 +750,27 @@ void *janus_rmq_in_thread(void *data) {
 	}
 	JANUS_LOG(LOG_INFO, "Leaving RabbitMQ in thread\n");
 	return NULL;
+}
+
+static void _janus_rmq_out_log(char *payload_text)
+{
+  gchar **v;
+  gchar *printed_payload;
+  /* filter out ack messages, success, or videocontrol:stats msgs */
+
+  if (strstr(payload_text, "\"janus\": \"ack\"") ||
+      strstr(payload_text, "\"janus\": \"success\"") ||
+      strstr(payload_text, "\"videocontrol\": \"stats\"")){
+    /* don't print ack or success messages */
+    return;
+  }
+
+  /* remove '/n's in payload to print on 1 line only */
+  v = g_strsplit(payload_text, "\n", -1);
+  printed_payload = g_strjoinv(NULL, v);
+  g_strfreev(v);
+	JANUS_LOG(LOG_VERB, "%s\n", printed_payload);
+  g_free(printed_payload);
 }
 
 void *janus_rmq_out_thread(void *data) {
@@ -769,8 +790,8 @@ void *janus_rmq_out_thread(void *data) {
 			janus_mutex_lock(&rmq_client->mutex);
 			/* Gotcha! Convert json_t to string */
       char *payload_text = response->payload;
-      JANUS_LOG(LOG_VERB, "Sending %s API message to RabbitMQ (%zu bytes)\n", response->admin ? "Admin" : "Janus", strlen(payload_text));
-			JANUS_LOG(LOG_VERB, "%s\n", payload_text);
+      JANUS_LOG(LOG_HUGE, "Sending %s API message to RabbitMQ (%zu bytes)\n", response->admin ? "Admin" : "Janus", strlen(payload_text));
+      _janus_rmq_out_log(payload_text);
 			amqp_basic_properties_t props;
 			props._flags = 0;
 			props._flags |= AMQP_BASIC_REPLY_TO_FLAG;
