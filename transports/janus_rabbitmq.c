@@ -739,7 +739,7 @@ void *janus_rmq_in_thread(void *data) {
 		}
 		JANUS_LOG(LOG_HUGE, "Got %"SCNu64"/%"SCNu64" bytes from the %s queue (%"SCNu64")\n",
 			received, total, admin ? "admin API" : "Janus API", frame.payload.body_fragment.len);
-		JANUS_LOG(LOG_VERB, "%s", payload);
+		JANUS_LOG(LOG_VERB, "%s\n", payload);
 		/* Parse the JSON payload */
 		json_error_t error;
 		json_t *root = json_loadb(payload, frame.payload.body_fragment.len, 0, &error);
@@ -754,14 +754,14 @@ void *janus_rmq_in_thread(void *data) {
 
 static void _dazzl_janus_rmq_out_log(char *payload_text, janus_rabbitmq_response *response)
 {
-  gchar **v;
+  gchar **v, **v_iter;
   gchar *printed_payload;
   /* filter out ack messages, success, or videocontrol:stats msgs */
 
   if (strstr(payload_text, "\"janus\": \"ack\"") ||
       strstr(payload_text, "\"janus\": \"success\"") ||
       strstr(payload_text, "\"videocontrol\": \"stats\"")){
-    /* don't print ack or success messages */
+    /* don't print acki, success messages or dazzl stats */
     return;
   }
 
@@ -769,7 +769,12 @@ static void _dazzl_janus_rmq_out_log(char *payload_text, janus_rabbitmq_response
             response->admin ? "Admin" : "Janus", strlen(payload_text));
 
   /* remove '/n's in payload to print on 1 line only */
-  v = g_strsplit(payload_text, "\n", -1);
+  v = v_iter = g_strsplit(payload_text, "\n", -1);
+  /* remove leading and trailing spaces in each string */
+  while(*v_iter) {
+    g_strstrip(*v_iter);
+    v_iter++;
+  }
   printed_payload = g_strjoinv("", v);
   g_strfreev(v);
 	JANUS_LOG(LOG_VERB, "%s\n", printed_payload);
