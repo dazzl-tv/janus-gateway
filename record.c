@@ -81,6 +81,17 @@ static void janus_recorder_free(const janus_refcount *recorder_ref) {
 	g_free(recorder);
 }
 
+// Return the filename'size
+static long int findSize(const char *file_name)
+{
+    struct stat st;
+
+    if(stat(file_name,&st)==0)
+        return (st.st_size);
+    else
+        return -1;
+}
+
 janus_recorder *janus_recorder_create(const char *dir, const char *codec, const char *filename) {
 	janus_recorder_medium type = JANUS_RECORDER_AUDIO;
 	if(codec == NULL) {
@@ -111,7 +122,7 @@ janus_recorder *janus_recorder_create(const char *dir, const char *codec, const 
 #ifdef RECORD_MULTIPART	
 	rc->initial_filename = NULL;
 	rc->cptr_suffix_filename = 0;
-	rc->cptr_nb_frames = 0;
+	//rc->cptr_nb_frames = 0;
 #endif
 	const char *rec_dir = NULL;
 	const char *rec_file = NULL;
@@ -295,7 +306,8 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 	// VIDEO
 	if (recorder->type == JANUS_RECORDER_VIDEO)
 	{
-		if (recorder->cptr_nb_frames == NB_MAX_FRAME_VIDEO-1)
+	        if (findSize(recorder->filename)>5000000)
+		//if (recorder->cptr_nb_frames == NB_MAX_FRAME_VIDEO-1)
 		{
 			if (recorder->initial_filename == NULL) {
 				recorder->initial_filename = strdup(recorder->filename);
@@ -316,15 +328,16 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 			// Open the new file
 			recorder->file = fopen(recorder->filename, "wb");
 			JANUS_LOG(LOG_HUGE, "Creating new video record file : '%s' \n", recorder->filename);
-			recorder->cptr_nb_frames = 0;
-		} else {
+			//recorder->cptr_nb_frames = 0;
+		} /*else {
 			recorder->cptr_nb_frames++;
-		}
+		}*/
 	}
 	// AUDIO
 	else if (recorder->type == JANUS_RECORDER_AUDIO)
 	{
-		if (recorder->cptr_nb_frames == NB_MAX_FRAME_AUDIO-1)
+		//if (recorder->cptr_nb_frames == NB_MAX_FRAME_AUDIO-1)
+                if (findSize(recorder->filename)>5000000)
 		{
 			if (recorder->initial_filename == NULL) {
 				recorder->initial_filename = strdup(recorder->filename);
@@ -345,10 +358,10 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 			// Open the new file
 			recorder->file = fopen(recorder->filename, "wb");
 			JANUS_LOG(LOG_INFO, "Creating new audio record file : '%s' ", recorder->filename);
-			recorder->cptr_nb_frames = 0;
-		} else {
+			//recorder->cptr_nb_frames = 0;
+		} /*else {
 			recorder->cptr_nb_frames++;
-		}
+		} */
 	}
 #endif	
 
