@@ -19,8 +19,10 @@
 
 #include <arpa/inet.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <errno.h>
 #include <libgen.h>
+#include <unistd.h>
 
 #include <glib.h>
 #include <jansson.h>
@@ -42,6 +44,17 @@ static const char *frame_header = "MEET";
 static gboolean rec_tempname = FALSE;
 /* Extension to add in case tempnames is true (default="tmp" --> ".tmp") */
 static char *rec_tempext = NULL;
+
+// Return the filename's size
+/*static long int findSize(const char *file_name)
+{
+    struct stat st = 0;
+
+    if(stat(file_name,&st)==0)
+        return (st.st_size);
+    else
+        return -1;
+}*/
 
 void janus_recorder_init(gboolean tempnames, const char *extension) {
 	JANUS_LOG(LOG_INFO, "Initializing recorder code\n");
@@ -79,17 +92,6 @@ static void janus_recorder_free(const janus_refcount *recorder_ref) {
 	g_free(recorder->codec);
 	recorder->codec = NULL;
 	g_free(recorder);
-}
-
-// Return the filename'size
-static long int findSize(const char *file_name)
-{
-    struct stat st;
-
-    if(stat(file_name,&st)==0)
-        return (st.st_size);
-    else
-        return -1;
 }
 
 janus_recorder *janus_recorder_create(const char *dir, const char *codec, const char *filename) {
@@ -295,7 +297,7 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 	}
 #ifdef RECORD_MULTIPART		
 	fflush(recorder->file);
-	fsync(recorder->file);
+	fsync(fileno(recorder->file));
 #endif
 
 	/* Done */
@@ -303,16 +305,23 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 
 #ifdef RECORD_MULTIPART	
 	// Manage part files
+    long int cur_size  = 0;    
+     struct stat st;
+    stat(recorder->filename, &st);
+    cur_size = st.st_size;
+	//JANUS_LOG(LOG_INFO, "Filename to check: %s \n", recorder->filename);
+	//JANUS_LOG(LOG_INFO, "Current  file size (2): %ld \n", cur_size);
 	// VIDEO
 	if (recorder->type == JANUS_RECORDER_VIDEO)
-	{
-	        if (findSize(recorder->filename)>5000000)
+	{	   
+		// --- Check if the file is superior or equal to 5MB
 		//if (recorder->cptr_nb_frames == NB_MAX_FRAME_VIDEO-1)
+		//if (findSize(recorder->filename)>5000000)
+		if (cur_size>5000000)
 		{
 			if (recorder->initial_filename == NULL) {
 				recorder->initial_filename = strdup(recorder->filename);
 			}
-
 			// Flush and close the previous filename
 			if(recorder->file != NULL){
 				fclose(recorder->file);
@@ -336,13 +345,14 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 	// AUDIO
 	else if (recorder->type == JANUS_RECORDER_AUDIO)
 	{
+		// --- Check if the file is superior or equal to 5MB
 		//if (recorder->cptr_nb_frames == NB_MAX_FRAME_AUDIO-1)
-                if (findSize(recorder->filename)>5000000)
+        //if (findSize(recorder->filename)>5000000)
+		if (cur_size>5000000)
 		{
 			if (recorder->initial_filename == NULL) {
 				recorder->initial_filename = strdup(recorder->filename);
 			}
-
 			// Flush and close the previous filename
 			if(recorder->file != NULL){
 				fclose(recorder->file);
@@ -357,7 +367,7 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 			recorder->filename = g_strdup(newname);
 			// Open the new file
 			recorder->file = fopen(recorder->filename, "wb");
-			JANUS_LOG(LOG_INFO, "Creating new audio record file : '%s' ", recorder->filename);
+			JANUS_LOG(LOG_INFO, "Creating new audio record file : '%s' \n", recorder->filename);
 			//recorder->cptr_nb_frames = 0;
 		} /*else {
 			recorder->cptr_nb_frames++;
