@@ -38,7 +38,7 @@ typedef enum janus_recorder_medium {
 
 #ifdef RECORD_MULTIPART
 #define NB_MAX_FRAME_VIDEO	10000
-#define NB_MAX_FRAME_AUDIO 	100000
+#define NB_MAX_FRAME_AUDIO 	1000000
 #endif
 
 /*! \brief Structure that represents a recorder */
@@ -73,7 +73,7 @@ typedef struct janus_recorder {
 	/* counter for the indent file */
 	gint64 cptr_suffix_filename;
 	/* counter for the number of frames */
-	//gint64 cptr_nb_frames;
+	gint64 cptr_nb_frames;
 #endif	
 } janus_recorder;
 
