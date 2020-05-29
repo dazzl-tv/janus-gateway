@@ -347,7 +347,7 @@ void janus_sctp_send_data(janus_sctp_association *sctp, char *label, char *buf, 
 		return;
 	if(label == NULL)
 		label = (char *)default_label;
-	JANUS_LOG(LOG_VERB, "[%"SCNu64"] SCTP data to send (label=%s, %d bytes) coming from a plugin.\n",
+	JANUS_LOG(LOG_HUGE, "[%"SCNu64"] SCTP data to send (label=%s, %d bytes) coming from a plugin.\n",
 		  sctp->handle_id, label, len);
 	JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Outgoing SCTP contents: %.*s\n",
 		  sctp->handle_id, len, buf);
@@ -356,13 +356,13 @@ void janus_sctp_send_data(janus_sctp_association *sctp, char *label, char *buf, 
 	for(i = 0; i < NUMBER_OF_CHANNELS; i++) {
 		if(sctp->channels[i].state != DATA_CHANNEL_CLOSED && !strcmp(sctp->channels[i].label, label)) {
 			found = 1;
-			JANUS_LOG(LOG_VERB, "[%"SCNu64"]   -- Using open channel %i\n", sctp->handle_id, i);
+			JANUS_LOG(LOG_HUGE, "[%"SCNu64"]   -- Using open channel %i\n", sctp->handle_id, i);
 			break;
 		}
 	}
 	if(!found) {
 		/* There's no open channel, try opening one now */
-		JANUS_LOG(LOG_VERB, "[%"SCNu64"] Creating channel '%s'...\n", sctp->handle_id, label);
+		JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Creating channel '%s'...\n", sctp->handle_id, label);
 		if(janus_sctp_open_channel(sctp, label, 0, 0, 0) < 0) {
 			JANUS_LOG(LOG_ERR, "[%"SCNu64"] Couldn't open channel...\n", sctp->handle_id);
 			return;
@@ -370,7 +370,7 @@ void janus_sctp_send_data(janus_sctp_association *sctp, char *label, char *buf, 
 		for(i = 0; i < NUMBER_OF_CHANNELS; i++) {
 			if(sctp->channels[i].state != DATA_CHANNEL_CLOSED && !strcmp(sctp->channels[i].label, label)) {
 				found = 1;
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"]   -- Using open channel %i\n", sctp->handle_id, i);
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"]   -- Using open channel %i\n", sctp->handle_id, i);
 				break;
 			}
 		}
@@ -480,7 +480,7 @@ int janus_sctp_send_open_request_message(struct socket *sock, uint16_t stream, c
 	if(label == NULL)
 		label = (char *)default_label;
 	guint label_size = (strlen(label)+3) & ~3;
-	JANUS_LOG(LOG_VERB, "Opening channel with label '%s' (%zu, %u with padding)\n", label, strlen(label), label_size);
+	JANUS_LOG(LOG_HUGE, "Opening channel with label '%s' (%zu, %u with padding)\n", label, strlen(label), label_size);
 
 	req = g_malloc0(sizeof(janus_datachannel_open_request) + label_size);
 	req->msg_type = DATA_CHANNEL_OPEN_REQUEST;
@@ -699,7 +699,7 @@ int janus_sctp_send_text(janus_sctp_association *sctp, uint16_t id, char *text, 
 		JANUS_LOG(LOG_ERR, "[%"SCNu64"] sctp_sendv error (%d)\n", sctp->handle_id, errno);
 		return -1;
 	}
-	JANUS_LOG(LOG_VERB, "[%"SCNu64"] Message sent on channel %"SCNu16"\n", sctp->handle_id, id);
+	JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Message sent on channel %"SCNu16"\n", sctp->handle_id, id);
 	return 0;
 }
 
@@ -927,7 +927,7 @@ void janus_sctp_handle_data_message(janus_sctp_association *sctp, char *buffer, 
 	} else {
 		/* Assuming DATA_CHANNEL_PPID_DOMSTRING */
 		/* XXX: Protect for non 0 terminated buffer */
-		JANUS_LOG(LOG_VERB, "[%"SCNu64"] SCTP data received of length %zu on channel with id %d.\n",
+		JANUS_LOG(LOG_HUGE, "[%"SCNu64"] SCTP data received of length %zu on channel with id %d.\n",
 		       sctp->handle_id, length, channel->id);
 		JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Incoming SCTP contents: %.*s\n",
 		       sctp->handle_id, (int)length, buffer);
@@ -1008,7 +1008,7 @@ void janus_sctp_handle_message(janus_sctp_association *sctp, char *buffer, size_
 			}
 			break;
 		default:
-			JANUS_LOG(LOG_VERB, "[%"SCNu64"] Message of length %zu, PPID %u on stream %u received.\n",
+			JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Message of length %zu, PPID %u on stream %u received.\n",
 				   sctp->handle_id, length, ppid, stream);
 			break;
 	}
@@ -1017,63 +1017,63 @@ void janus_sctp_handle_message(janus_sctp_association *sctp, char *buffer, size_
 void janus_sctp_handle_association_change_event(struct sctp_assoc_change *sac) {
 	unsigned int i, n;
 
-	JANUS_LOG(LOG_VERB, "Association change ");
+	JANUS_LOG(LOG_HUGE, "Association change ");
 	switch (sac->sac_state) {
 		case SCTP_COMM_UP:
-			JANUS_LOG(LOG_VERB, "SCTP_COMM_UP");
+			JANUS_LOG(LOG_HUGE, "SCTP_COMM_UP");
 			break;
 		case SCTP_COMM_LOST:
-			JANUS_LOG(LOG_VERB, "SCTP_COMM_LOST");
+			JANUS_LOG(LOG_HUGE, "SCTP_COMM_LOST");
 			break;
 		case SCTP_RESTART:
-			JANUS_LOG(LOG_VERB, "SCTP_RESTART");
+			JANUS_LOG(LOG_HUGE, "SCTP_RESTART");
 			break;
 		case SCTP_SHUTDOWN_COMP:
-			JANUS_LOG(LOG_VERB, "SCTP_SHUTDOWN_COMP");
+			JANUS_LOG(LOG_HUGE, "SCTP_SHUTDOWN_COMP");
 			break;
 		case SCTP_CANT_STR_ASSOC:
-			JANUS_LOG(LOG_VERB, "SCTP_CANT_STR_ASSOC");
+			JANUS_LOG(LOG_HUGE, "SCTP_CANT_STR_ASSOC");
 			break;
 		default:
-			JANUS_LOG(LOG_VERB, "UNKNOWN");
+			JANUS_LOG(LOG_HUGE, "UNKNOWN");
 			break;
 	}
-	JANUS_LOG(LOG_VERB, ", streams (in/out) = (%u/%u)",
+	JANUS_LOG(LOG_HUGE, ", streams (in/out) = (%u/%u)",
 	       sac->sac_inbound_streams, sac->sac_outbound_streams);
 	n = sac->sac_length - sizeof(struct sctp_assoc_change);
 	if(((sac->sac_state == SCTP_COMM_UP) ||
 	     (sac->sac_state == SCTP_RESTART)) && (n > 0)) {
-		JANUS_LOG(LOG_VERB, ", supports");
+		JANUS_LOG(LOG_HUGE, ", supports");
 		for(i = 0; i < n; i++) {
 			switch (sac->sac_info[i]) {
 				case SCTP_ASSOC_SUPPORTS_PR:
-					JANUS_LOG(LOG_VERB, " PR");
+					JANUS_LOG(LOG_HUGE, " PR");
 					break;
 				case SCTP_ASSOC_SUPPORTS_AUTH:
-					JANUS_LOG(LOG_VERB, " AUTH");
+					JANUS_LOG(LOG_HUGE, " AUTH");
 					break;
 				case SCTP_ASSOC_SUPPORTS_ASCONF:
-					JANUS_LOG(LOG_VERB, " ASCONF");
+					JANUS_LOG(LOG_HUGE, " ASCONF");
 					break;
 				case SCTP_ASSOC_SUPPORTS_MULTIBUF:
-					JANUS_LOG(LOG_VERB, " MULTIBUF");
+					JANUS_LOG(LOG_HUGE, " MULTIBUF");
 					break;
 				case SCTP_ASSOC_SUPPORTS_RE_CONFIG:
-					JANUS_LOG(LOG_VERB, " RE-CONFIG");
+					JANUS_LOG(LOG_HUGE, " RE-CONFIG");
 					break;
 				default:
-					JANUS_LOG(LOG_VERB, " UNKNOWN(0x%02x)", sac->sac_info[i]);
+					JANUS_LOG(LOG_HUGE, " UNKNOWN(0x%02x)", sac->sac_info[i]);
 					break;
 			}
 		}
 	} else if(((sac->sac_state == SCTP_COMM_LOST) ||
 	            (sac->sac_state == SCTP_CANT_STR_ASSOC)) && (n > 0)) {
-		JANUS_LOG(LOG_VERB, ", ABORT =");
+		JANUS_LOG(LOG_HUGE, ", ABORT =");
 		for(i = 0; i < n; i++) {
-			JANUS_LOG(LOG_VERB, " 0x%02x", sac->sac_info[i]);
+			JANUS_LOG(LOG_HUGE, " 0x%02x", sac->sac_info[i]);
 		}
 	}
-	JANUS_LOG(LOG_VERB, ".\n");
+	JANUS_LOG(LOG_HUGE, ".\n");
 	if((sac->sac_state == SCTP_CANT_STR_ASSOC) ||
 			(sac->sac_state == SCTP_SHUTDOWN_COMP) ||
 			(sac->sac_state == SCTP_COMM_LOST)) {
@@ -1102,41 +1102,41 @@ void janus_sctp_handle_peer_address_change_event(struct sctp_paddr_change *spc) 
 			addr = addr_buf;
 			break;
 	}
-	JANUS_LOG(LOG_VERB, "Peer address %s is now ", addr);
+	JANUS_LOG(LOG_HUGE, "Peer address %s is now ", addr);
 	switch (spc->spc_state) {
 		case SCTP_ADDR_AVAILABLE:
-			JANUS_LOG(LOG_VERB, "SCTP_ADDR_AVAILABLE");
+			JANUS_LOG(LOG_HUGE, "SCTP_ADDR_AVAILABLE");
 			break;
 		case SCTP_ADDR_UNREACHABLE:
-			JANUS_LOG(LOG_VERB, "SCTP_ADDR_UNREACHABLE");
+			JANUS_LOG(LOG_HUGE, "SCTP_ADDR_UNREACHABLE");
 			break;
 		case SCTP_ADDR_REMOVED:
-			JANUS_LOG(LOG_VERB, "SCTP_ADDR_REMOVED");
+			JANUS_LOG(LOG_HUGE, "SCTP_ADDR_REMOVED");
 			break;
 		case SCTP_ADDR_ADDED:
-			JANUS_LOG(LOG_VERB, "SCTP_ADDR_ADDED");
+			JANUS_LOG(LOG_HUGE, "SCTP_ADDR_ADDED");
 			break;
 		case SCTP_ADDR_MADE_PRIM:
-			JANUS_LOG(LOG_VERB, "SCTP_ADDR_MADE_PRIM");
+			JANUS_LOG(LOG_HUGE, "SCTP_ADDR_MADE_PRIM");
 			break;
 		case SCTP_ADDR_CONFIRMED:
-			JANUS_LOG(LOG_VERB, "SCTP_ADDR_CONFIRMED");
+			JANUS_LOG(LOG_HUGE, "SCTP_ADDR_CONFIRMED");
 			break;
 		default:
-			JANUS_LOG(LOG_VERB, "UNKNOWN");
+			JANUS_LOG(LOG_HUGE, "UNKNOWN");
 			break;
 	}
-	JANUS_LOG(LOG_VERB, " (error = 0x%08x).\n", spc->spc_error);
+	JANUS_LOG(LOG_HUGE, " (error = 0x%08x).\n", spc->spc_error);
 	return;
 }
 
 void janus_sctp_handle_adaptation_indication(struct sctp_adaptation_event *sai) {
-	JANUS_LOG(LOG_VERB, "Adaptation indication: %x.\n", sai-> sai_adaptation_ind);
+	JANUS_LOG(LOG_HUGE, "Adaptation indication: %x.\n", sai-> sai_adaptation_ind);
 	return;
 }
 
 void janus_sctp_handle_shutdown_event(struct sctp_shutdown_event *sse) {
-	JANUS_LOG(LOG_VERB, "Shutdown event.\n");
+	JANUS_LOG(LOG_HUGE, "Shutdown event.\n");
 	/* XXX: notify all channels */
 	return;
 }
@@ -1146,24 +1146,24 @@ void janus_sctp_handle_stream_reset_event(janus_sctp_association *sctp, struct s
 	janus_sctp_channel *channel;
 
 	n = (strrst->strreset_length - sizeof(struct sctp_stream_reset_event)) / sizeof(uint16_t);
-	JANUS_LOG(LOG_VERB, "[%"SCNu64"] Stream reset event: flags = %x, ", sctp->handle_id, strrst->strreset_flags);
+	JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Stream reset event: flags = %x, ", sctp->handle_id, strrst->strreset_flags);
 	if(strrst->strreset_flags & SCTP_STREAM_RESET_INCOMING_SSN) {
 		if(strrst->strreset_flags & SCTP_STREAM_RESET_OUTGOING_SSN) {
-			JANUS_LOG(LOG_VERB, "incoming/");
+			JANUS_LOG(LOG_HUGE, "incoming/");
 		}
-		JANUS_LOG(LOG_VERB, "incoming ");
+		JANUS_LOG(LOG_HUGE, "incoming ");
 	}
 	if(strrst->strreset_flags & SCTP_STREAM_RESET_OUTGOING_SSN) {
-		JANUS_LOG(LOG_VERB, "outgoing ");
+		JANUS_LOG(LOG_HUGE, "outgoing ");
 	}
-	JANUS_LOG(LOG_VERB, "stream ids = ");
+	JANUS_LOG(LOG_HUGE, "stream ids = ");
 	for(i = 0; i < n; i++) {
 		if(i > 0) {
-			JANUS_LOG(LOG_VERB, ", ");
+			JANUS_LOG(LOG_HUGE, ", ");
 		}
-		JANUS_LOG(LOG_VERB, "%d", strrst->strreset_stream_list[i]);
+		JANUS_LOG(LOG_HUGE, "%d", strrst->strreset_stream_list[i]);
 	}
-	JANUS_LOG(LOG_VERB, ".\n");
+	JANUS_LOG(LOG_HUGE, ".\n");
 	if(!(strrst->strreset_flags & SCTP_STREAM_RESET_DENIED) &&
 	    !(strrst->strreset_flags & SCTP_STREAM_RESET_FAILED)) {
 		for(i = 0; i < n; i++) {
@@ -1198,11 +1198,11 @@ void janus_sctp_handle_remote_error_event(struct sctp_remote_error *sre) {
 	size_t i, n;
 
 	n = sre->sre_length - sizeof(struct sctp_remote_error);
-	JANUS_LOG(LOG_VERB, "Remote Error (error = 0x%04x): ", sre->sre_error);
+	JANUS_LOG(LOG_HUGE, "Remote Error (error = 0x%04x): ", sre->sre_error);
 	for(i = 0; i < n; i++) {
-		JANUS_LOG(LOG_VERB, " 0x%02x", sre-> sre_data[i]);
+		JANUS_LOG(LOG_HUGE, " 0x%02x", sre-> sre_data[i]);
 	}
-	JANUS_LOG(LOG_VERB, ".\n");
+	JANUS_LOG(LOG_HUGE, ".\n");
 	return;
 }
 
@@ -1210,22 +1210,22 @@ void janus_sctp_handle_send_failed_event(struct sctp_send_failed_event *ssfe) {
 	size_t i, n;
 
 	if(ssfe->ssfe_flags & SCTP_DATA_UNSENT) {
-		JANUS_LOG(LOG_VERB, "Unsent ");
+		JANUS_LOG(LOG_HUGE, "Unsent ");
 	}
 	if(ssfe->ssfe_flags & SCTP_DATA_SENT) {
-		JANUS_LOG(LOG_VERB, "Sent ");
+		JANUS_LOG(LOG_HUGE, "Sent ");
 	}
 	if(ssfe->ssfe_flags & ~(SCTP_DATA_SENT | SCTP_DATA_UNSENT)) {
-		JANUS_LOG(LOG_VERB, "(flags = %x) ", ssfe->ssfe_flags);
+		JANUS_LOG(LOG_HUGE, "(flags = %x) ", ssfe->ssfe_flags);
 	}
-	JANUS_LOG(LOG_VERB, "message with PPID = %d, SID = %d, flags: 0x%04x due to error = 0x%08x",
+	JANUS_LOG(LOG_HUGE, "message with PPID = %d, SID = %d, flags: 0x%04x due to error = 0x%08x",
 	       ntohl(ssfe->ssfe_info.snd_ppid), ssfe->ssfe_info.snd_sid,
 	       ssfe->ssfe_info.snd_flags, ssfe->ssfe_error);
 	n = ssfe->ssfe_length - sizeof(struct sctp_send_failed_event);
 	for(i = 0; i < n; i++) {
-		JANUS_LOG(LOG_VERB, " 0x%02x", ssfe->ssfe_data[i]);
+		JANUS_LOG(LOG_HUGE, " 0x%02x", ssfe->ssfe_data[i]);
 	}
-	JANUS_LOG(LOG_VERB, ".\n");
+	JANUS_LOG(LOG_HUGE, ".\n");
 	return;
 }
 
@@ -1269,7 +1269,7 @@ void janus_sctp_handle_notification(janus_sctp_association *sctp, union sctp_not
 		case SCTP_ASSOC_RESET_EVENT:
 			break;
 		case SCTP_STREAM_CHANGE_EVENT:
-			JANUS_LOG(LOG_VERB, "Stream change (in/out) = (%u/%u)\n",
+			JANUS_LOG(LOG_HUGE, "Stream change (in/out) = (%u/%u)\n",
 				notif->sn_strchange_event.strchange_instrms, notif->sn_strchange_event.strchange_outstrms);
 			break;
 		default:
