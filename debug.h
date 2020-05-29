@@ -100,9 +100,12 @@ do { \
 		} \
 		if (level == LOG_FATAL || level == LOG_ERR || level == LOG_DBG) { \
 			snprintf(janus_log_src, sizeof(janus_log_src), \
-			         "[%s:%s:%d] ", __FILE__, __FUNCTION__, __LINE__); \
-		} \
-    if (g_str_has_prefix(__FILE__, "dazzl_")) { \
+			         "[%s:%d] ", __FUNCTION__, __LINE__); \
+		} else { \
+      snprintf(janus_log_src, sizeof(janus_log_src), \
+			         "[%s] ", __FUNCTION__); \
+    } \
+    if(g_str_has_prefix(__FILE__, "dazzl_")) { \
       char dazzl_module[64]; \
       char *start_pos, *end_pos; \
       bzero(dazzl_module, 64); \

@@ -96,6 +96,18 @@ jansson_version=2.5
 # Janus
 ##
 
+AC_ARG_ENABLE([record-multipart],
+              AS_HELP_STRING([--enable-record-multipart],
+              [enable recording with several files [default=no]]),
+              [enable_record_multipart=$enableval],
+              [enable_record_multipart=no] )
+if test "x$enable_record_multipart" = "xyes" ; then
+      AM_CONDITIONAL([ENABLE_RECORD_MULTIPART], [test "x$enable_record_multipart" = "xyes"])
+      AC_DEFINE(RECORD_MULTIPART, 1, [Enable record with multipart])
+else
+      AM_CONDITIONAL([ENABLE_RECORD_MULTIPART], [test "x$enable_record_multipart" = "xyes"])
+fi
+
 AC_ARG_ENABLE([docs],
               [AS_HELP_STRING([--enable-docs],
                               [Enable building documentation])],
@@ -950,6 +962,9 @@ AM_COND_IF([ENABLE_TURN_REST_API],
 AM_COND_IF([ENABLE_DOCS],
 	[echo "Doxygen documentation:     yes"],
 	[echo "Doxygen documentation:     no"])
+AM_COND_IF([ENABLE_RECORD_MULTIPART],
+	[echo "Multiparts recordings:     yes"],
+	[echo "Multiparts recordings:     no"])      
 echo "Transports:"
 AM_COND_IF([ENABLE_REST],
 	[echo "    REST (HTTP/HTTPS):     yes"],

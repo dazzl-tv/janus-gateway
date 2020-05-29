@@ -625,7 +625,7 @@ int janus_rabbitmq_send_message(janus_transport_session *transport, void *reques
 		json_decref(message);
 		return -1;
 	}
-	JANUS_LOG(LOG_VERB, "Sending %s API %s via RabbitMQ\n", admin ? "admin" : "Janus", request_id ? "response" : "event");
+	JANUS_LOG(LOG_HUGE, "Sending %s API %s via RabbitMQ\n", admin ? "admin" : "Janus", request_id ? "response" : "event");
 	/* FIXME Add to the queue of outgoing messages */
 	janus_rabbitmq_response *response = g_malloc0(sizeof(janus_rabbitmq_response));
 	response->admin = admin;
@@ -678,14 +678,14 @@ void *janus_rmq_in_thread(void *data) {
 			break;
 		}
 		/* We expect method first */
-		JANUS_LOG(LOG_VERB, "Frame type %d, channel %d\n", frame.frame_type, frame.channel);
+		JANUS_LOG(LOG_HUGE, "Frame type %d, channel %d\n", frame.frame_type, frame.channel);
 		if(frame.frame_type != AMQP_FRAME_METHOD)
 			continue;
-		JANUS_LOG(LOG_VERB, "Method %s\n", amqp_method_name(frame.payload.method.id));
+		JANUS_LOG(LOG_HUGE, "Method %s\n", amqp_method_name(frame.payload.method.id));
 		gboolean admin = FALSE;
 		if(frame.payload.method.id == AMQP_BASIC_DELIVER_METHOD) {
 			amqp_basic_deliver_t *d = (amqp_basic_deliver_t *)frame.payload.method.decoded;
-			JANUS_LOG(LOG_VERB, "Delivery #%u, %.*s\n", (unsigned) d->delivery_tag, (int) d->routing_key.len, (char *) d->routing_key.bytes);
+			JANUS_LOG(LOG_HUGE, "Delivery #%u, %.*s\n", (unsigned) d->delivery_tag, (int) d->routing_key.len, (char *) d->routing_key.bytes);
 			/* Check if this is a Janus or Admin API request */
 			if(rmq_client->admin_api_enabled) {
 				if(d->routing_key.len == rmq_client->to_janus_admin_queue.len) {
@@ -701,11 +701,11 @@ void *janus_rmq_in_thread(void *data) {
 					}
 				}
 			}
-			JANUS_LOG(LOG_VERB, "  -- This is %s API request\n", admin ? "an admin" : "a Janus");
+			JANUS_LOG(LOG_HUGE, "  -- This is %s API request\n", admin ? "an admin" : "a Janus");
 		}
 		/* Then the header */
 		amqp_simple_wait_frame(rmq_client->rmq_conn, &frame);
-		JANUS_LOG(LOG_VERB, "Frame type %d, channel %d\n", frame.frame_type, frame.channel);
+		JANUS_LOG(LOG_HUGE, "Frame type %d, channel %d\n", frame.frame_type, frame.channel);
 		if(frame.frame_type != AMQP_FRAME_HEADER)
 			continue;
 		amqp_basic_properties_t *p = (amqp_basic_properties_t *)frame.payload.properties.decoded;
@@ -714,30 +714,30 @@ void *janus_rmq_in_thread(void *data) {
       request_id = g_malloc0(sizeof(janus_rabbitmq_opaque_id));
       request_id->reply_to = g_malloc0(p->reply_to.len+1);
       sprintf(request_id->reply_to, "%.*s", (int) p->reply_to.len, (char *) p->reply_to.bytes);
-      JANUS_LOG(LOG_VERB, "  -- Reply-to: %s\n", request_id->reply_to);
+      JANUS_LOG(LOG_HUGE, "  -- Reply-to: %s\n", request_id->reply_to);
 		}
 		if(p->_flags & AMQP_BASIC_CORRELATION_ID_FLAG) {
       if (!request_id) request_id = g_malloc0(sizeof(janus_rabbitmq_opaque_id));
       request_id->correlation_id = g_malloc0(p->correlation_id.len+1);
       sprintf(request_id->correlation_id, "%.*s", (int) p->correlation_id.len, (char *) p->correlation_id.bytes);
-      JANUS_LOG(LOG_VERB, "  -- Correlation-id: %s\n", request_id->correlation_id);
+      JANUS_LOG(LOG_HUGE, "  -- Correlation-id: %s\n", request_id->correlation_id);
 		}
 		if(p->_flags & AMQP_BASIC_CONTENT_TYPE_FLAG) {
-			JANUS_LOG(LOG_VERB, "  -- Content-type: %.*s\n", (int) p->content_type.len, (char *) p->content_type.bytes);
+			JANUS_LOG(LOG_HUGE, "  -- Content-type: %.*s\n", (int) p->content_type.len, (char *) p->content_type.bytes);
 		}
 		/* And the body */
 		uint64_t total = frame.payload.properties.body_size, received = 0;
 		char *payload = g_malloc0(total+1), *index = payload;
 		while(received < total) {
 			amqp_simple_wait_frame(rmq_client->rmq_conn, &frame);
-			JANUS_LOG(LOG_VERB, "Frame type %d, channel %d\n", frame.frame_type, frame.channel);
+			JANUS_LOG(LOG_HUGE, "Frame type %d, channel %d\n", frame.frame_type, frame.channel);
 			if(frame.frame_type != AMQP_FRAME_BODY)
 				break;
 			sprintf(index, "%.*s", (int) frame.payload.body_fragment.len, (char *) frame.payload.body_fragment.bytes);
 			received += frame.payload.body_fragment.len;
 			index = payload+received;
 		}
-		JANUS_LOG(LOG_VERB, "Got %"SCNu64"/%"SCNu64" bytes from the %s queue (%"SCNu64")\n",
+		JANUS_LOG(LOG_HUGE, "Got %"SCNu64"/%"SCNu64" bytes from the %s queue (%"SCNu64")\n",
 			received, total, admin ? "admin API" : "Janus API", frame.payload.body_fragment.len);
 		JANUS_LOG(LOG_VERB, "%s\n", payload);
 		/* Parse the JSON payload */
@@ -750,6 +750,35 @@ void *janus_rmq_in_thread(void *data) {
 	}
 	JANUS_LOG(LOG_INFO, "Leaving RabbitMQ in thread\n");
 	return NULL;
+}
+
+static void _dazzl_janus_rmq_out_log(char *payload_text, janus_rabbitmq_response *response)
+{
+  gchar **v, **v_iter;
+  gchar *printed_payload;
+  /* filter out ack messages, success, or videocontrol:stats msgs */
+
+  if (strstr(payload_text, "\"janus\": \"ack\"") ||
+      strstr(payload_text, "\"janus\": \"success\"") ||
+      strstr(payload_text, "\"videocontrol\": \"stats\"")){
+    /* don't print acki, success messages or dazzl stats */
+    return;
+  }
+
+  JANUS_LOG(LOG_HUGE, "Sending %s API message to RabbitMQ (%zu bytes)\n",
+            response->admin ? "Admin" : "Janus", strlen(payload_text));
+
+  /* remove '/n's in payload to print on 1 line only */
+  v = v_iter = g_strsplit(payload_text, "\n", -1);
+  /* remove leading and trailing spaces in each string */
+  while(*v_iter) {
+    g_strstrip(*v_iter);
+    v_iter++;
+  }
+  printed_payload = g_strjoinv("", v);
+  g_strfreev(v);
+	JANUS_LOG(LOG_VERB, "%s\n", printed_payload);
+  g_free(printed_payload);
 }
 
 void *janus_rmq_out_thread(void *data) {
@@ -769,8 +798,7 @@ void *janus_rmq_out_thread(void *data) {
 			janus_mutex_lock(&rmq_client->mutex);
 			/* Gotcha! Convert json_t to string */
       char *payload_text = response->payload;
-      JANUS_LOG(LOG_VERB, "Sending %s API message to RabbitMQ (%zu bytes)...\n", response->admin ? "Admin" : "Janus", strlen(payload_text));
-			JANUS_LOG(LOG_VERB, "%s\n", payload_text);
+      _dazzl_janus_rmq_out_log(payload_text, response);
 			amqp_basic_properties_t props;
 			props._flags = 0;
 			props._flags |= AMQP_BASIC_REPLY_TO_FLAG;

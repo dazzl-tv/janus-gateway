@@ -179,7 +179,7 @@ static int janus_dtls_generate_keys(X509 **certificate, EVP_PKEY **private_key) 
 	RSA *rsa_key = NULL;
 	X509_NAME *cert_name = NULL;
 
-	JANUS_LOG(LOG_VERB, "Generating DTLS key / cert\n");
+	JANUS_LOG(LOG_HUGE, "Generating DTLS key / cert\n");
 
 	/* Create a big number object. */
 	bne = BN_new();
@@ -551,7 +551,7 @@ janus_dtls_srtp *janus_dtls_srtp_create(void *ice_component, janus_dtls_role rol
 	SSL_set_tmp_ecdh(dtls->ssl, ecdh);
 	EC_KEY_free(ecdh);
 #ifdef HAVE_DTLS_SETTIMEOUT
-	JANUS_LOG(LOG_VERB, "[%"SCNu64"]   Setting DTLS initial timeout: %u\n", handle->handle_id, dtls_timeout_base);
+	JANUS_LOG(LOG_HUGE, "[%"SCNu64"]   Setting DTLS initial timeout: %u\n", handle->handle_id, dtls_timeout_base);
 	DTLSv1_set_initial_timeout_duration(dtls->ssl, dtls_timeout_base);
 #endif
 	dtls->ready = 0;
@@ -666,7 +666,7 @@ void janus_dtls_srtp_incoming_msg(janus_dtls_srtp *dtls, char *buf, uint16_t len
 	}
 	if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_STOP) || janus_is_stopping()) {
 		/* DTLS alert triggered, we should end it here */
-		JANUS_LOG(LOG_VERB, "[%"SCNu64"] Forced to stop it here...\n", handle->handle_id);
+		JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Forced to stop it here...\n", handle->handle_id);
 		return;
 	}
 	if(!SSL_is_init_finished(dtls->ssl)) {
@@ -700,10 +700,10 @@ void janus_dtls_srtp_incoming_msg(janus_dtls_srtp *dtls, char *buf, uint16_t len
 			char remote_fingerprint[160];
 			char *rfp = (char *)&remote_fingerprint;
 			if(stream->remote_hashing && !strcasecmp(stream->remote_hashing, "sha-1")) {
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"] Computing sha-1 fingerprint of remote certificate...\n", handle->handle_id);
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Computing sha-1 fingerprint of remote certificate...\n", handle->handle_id);
 				X509_digest(rcert, EVP_sha1(), (unsigned char *)rfingerprint, &rsize);
 			} else {
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"] Computing sha-256 fingerprint of remote certificate...\n", handle->handle_id);
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Computing sha-256 fingerprint of remote certificate...\n", handle->handle_id);
 				X509_digest(rcert, EVP_sha256(), (unsigned char *)rfingerprint, &rsize);
 			}
 			X509_free(rcert);
@@ -714,10 +714,10 @@ void janus_dtls_srtp_incoming_msg(janus_dtls_srtp *dtls, char *buf, uint16_t len
 				rfp += 3;
 			}
 			*(rfp-1) = 0;
-			JANUS_LOG(LOG_VERB, "[%"SCNu64"] Remote fingerprint (%s) of the client is %s\n",
+			JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Remote fingerprint (%s) of the client is %s\n",
 				handle->handle_id, stream->remote_hashing ? stream->remote_hashing : "sha-256", remote_fingerprint);
 			if(!strcasecmp(remote_fingerprint, stream->remote_fingerprint ? stream->remote_fingerprint : "(none)")) {
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"]  Fingerprint is a match!\n", handle->handle_id);
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"]  Fingerprint is a match!\n", handle->handle_id);
 				dtls->dtls_state = JANUS_DTLS_STATE_CONNECTED;
 				dtls->dtls_connected = janus_get_monotonic_time();
 				/* Notify event handlers */
@@ -741,7 +741,7 @@ void janus_dtls_srtp_incoming_msg(janus_dtls_srtp *dtls, char *buf, uint16_t len
 					janus_dtls_notify_state_change(dtls);
 					goto done;
 				}
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"] %s\n", handle->handle_id, srtp_profile->name);
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"] %s\n", handle->handle_id, srtp_profile->name);
 				int key_length = 0, salt_length = 0, master_length = 0;
 				switch(srtp_profile->id) {
 					case SRTP_AES128_CM_SHA1_80:
@@ -767,7 +767,7 @@ void janus_dtls_srtp_incoming_msg(janus_dtls_srtp *dtls, char *buf, uint16_t len
 						JANUS_LOG(LOG_WARN, "[%"SCNu64"] Unsupported SRTP profile %lu\n", handle->handle_id, srtp_profile->id);
 						break;
 				}
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"] Key/Salt/Master: %d/%d/%d\n",
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Key/Salt/Master: %d/%d/%d\n",
 					handle->handle_id, master_length, key_length, salt_length);
 				/* Complete with SRTP setup */
 				unsigned char material[master_length*2];
@@ -870,7 +870,7 @@ void janus_dtls_srtp_incoming_msg(janus_dtls_srtp *dtls, char *buf, uint16_t len
 					JANUS_LOG(LOG_ERR, "[%"SCNu64"]  -- %d (%s)\n", handle->handle_id, res, janus_srtp_error_str(res));
 					goto done;
 				}
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"] Created inbound SRTP session for component %d in stream %d\n", handle->handle_id, component->component_id, stream->stream_id);
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Created inbound SRTP session for component %d in stream %d\n", handle->handle_id, component->component_id, stream->stream_id);
 				res = srtp_create(&(dtls->srtp_out), &(dtls->local_policy));
 				if(res != srtp_err_status_ok) {
 					/* Something went wrong... */
@@ -880,7 +880,7 @@ void janus_dtls_srtp_incoming_msg(janus_dtls_srtp *dtls, char *buf, uint16_t len
 				}
 				dtls->srtp_profile = srtp_profile->id;
 				dtls->srtp_valid = 1;
-				JANUS_LOG(LOG_VERB, "[%"SCNu64"] Created outbound SRTP session for component %d in stream %d\n", handle->handle_id, component->component_id, stream->stream_id);
+				JANUS_LOG(LOG_HUGE, "[%"SCNu64"] Created outbound SRTP session for component %d in stream %d\n", handle->handle_id, component->component_id, stream->stream_id);
 #ifdef HAVE_SCTP
 				if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_DATA_CHANNELS)) {
 					/* Create SCTP association as well */
@@ -1020,7 +1020,7 @@ gboolean janus_dtls_retry(gpointer stack) {
 	if(janus_flags_is_set(&handle->webrtc_flags, JANUS_ICE_HANDLE_WEBRTC_STOP))
 		goto stoptimer;
 	if(dtls->dtls_state == JANUS_DTLS_STATE_CONNECTED) {
-		JANUS_LOG(LOG_VERB, "[%"SCNu64"] DTLS already set up, disabling retransmission timer!\n", handle->handle_id);
+		JANUS_LOG(LOG_HUGE, "[%"SCNu64"] DTLS already set up, disabling retransmission timer!\n", handle->handle_id);
 		goto stoptimer;
 	}
 	if(janus_get_monotonic_time() - dtls->dtls_started >= 20*G_USEC_PER_SEC) {
