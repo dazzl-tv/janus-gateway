@@ -379,10 +379,13 @@ int janus_recorder_save_frame(janus_recorder *recorder, char *buffer, uint lengt
 		}
 		tot -= temp;
 	}
+
+  /*
 #ifdef RECORD_MULTIPART		
 	fflush(recorder->file);
 	fsync(fileno(recorder->file));
 #endif
+  */
 
 	/* Done */
 	janus_mutex_unlock_nodebug(&recorder->mutex);
