@@ -20,6 +20,7 @@
 extern int janus_log_level;
 extern gboolean janus_log_timestamps;
 extern gboolean janus_log_colors;
+extern char *janus_log_global_prefix;
 
 /** @name Janus log colors
  */
@@ -100,7 +101,7 @@ do { \
 		} \
 		if (level == LOG_FATAL || level == LOG_ERR || level == LOG_DBG) { \
 			snprintf(janus_log_src, sizeof(janus_log_src), \
-			         "[%s:%d] ", __FUNCTION__, __LINE__); \
+			         "[%s:%s:%d] ", __FILE__, __FUNCTION__, __LINE__); \
 		} else { \
       snprintf(janus_log_src, sizeof(janus_log_src), \
 			         "[%s] ", __FUNCTION__); \
@@ -116,7 +117,8 @@ do { \
         if (end_pos) \
           strncpy(dazzl_module, start_pos, end_pos - start_pos); \
       } \
-		  JANUS_PRINT("%s%s%s%s%s%s" format, \
+		  JANUS_PRINT("%s%s%s%s%s%s%s" format, \
+			janus_log_global_prefix ? janus_log_global_prefix : "", \
 			janus_log_ts, \
       ANSI_COLOR_GREEN"[Dazzl:", \
       dazzl_module, \
@@ -125,7 +127,8 @@ do { \
 			janus_log_src, \
 			##__VA_ARGS__); \
     } else { \
-		  JANUS_PRINT("%s%s%s" format, \
+		  JANUS_PRINT("%s%s%s%s" format, \
+			janus_log_global_prefix ? janus_log_global_prefix : "", \
 			janus_log_ts, \
 			janus_log_prefix[level | ((int)janus_log_colors << 3)], \
 			janus_log_src, \

@@ -72,10 +72,10 @@ janus_eventhandler *create(void) {
  * handlers never need to contact the Janus core themselves. This path can be used to read and
  * parse a configuration file for the event handler plugin: the event handler
  * plugins we made available out of the box use the package name as a
- * name for the file (e.g., \c janus.eventhandler.fake.cfg for the sample
+ * name for the file (e.g., \c janus.eventhandler.fake.jcfg for the sample
  * event handler plugin), but you're free to use a different one, as long
  * as it doesn't collide with existing ones. Besides, the existing eventhandler
- * plugins use the same INI format for configuration files the core
+ * plugins use the same libconfig format for configuration files the core
  * uses (relying on the \c janus_config helpers for the purpose) but
  * again, if you prefer a different format (XML, JSON, etc.) that's up to you.
  *
@@ -109,7 +109,7 @@ janus_eventhandler *create(void) {
  * their event handler plugin structure, e.g.:
  *
 \verbatim
-static janus_eventhandler janus_fake_eventhandler handler plugin =
+static janus_eventhandler janus_fake_eventhandler_plugin =
 	{
 		JANUS_EVENTHANDLER_INIT,
 
@@ -148,6 +148,47 @@ static janus_eventhandler janus_fake_eventhandler handler plugin =
 	/* TODO Others? */
 /*! \brief Mask with all events enabled (shortcut when you want to subscribe to everything) */
 #define JANUS_EVENT_TYPE_ALL		(0xffffffff)
+///@}
+
+/** @name Subtype of event types Janus could notify
+ * @details Some events, like JANUS_EVENT_TYPE_WEBRTC, don't have a uniform syntax:
+ * an event related to a new local candidate looks very different from an event
+ * related to, e.g., a selected pair or a DTLS state, all of which belong to the
+ * same category of \c webrtc type events. In order to simplify the management of
+ * events in strongly typed languages, events can contain a \c subtype property
+ * as well: this property is optional, because not all event types need this finer
+ * grain of detail. At the time of writing, subtypes are only available for
+ * JANUS_EVENT_TYPE_CORE ("core"), JANUS_EVENT_TYPE_WEBRTC ("webrtc") and
+ * JANUS_EVENT_TYPE_MEDIA ("media") types.
+ * @note Unlike the type, subtypes are not a mask: as a consequence, you cannot
+ * filter subtypes using the Event Handler plugin API, only types. Besides,
+ * there can be overlaps between subtypes related to
+ */
+///@{
+/*! \brief No subtype */
+#define JANUS_EVENT_SUBTYPE_NONE			0
+/*! \brief Core event subtypes: startup */
+#define JANUS_EVENT_SUBTYPE_CORE_STARTUP	1
+/*! \brief Core event subtypes: shutdown */
+#define JANUS_EVENT_SUBTYPE_CORE_SHUTDOWN	2
+/*! \brief WebRTC event subtypes: ICE state */
+#define JANUS_EVENT_SUBTYPE_WEBRTC_ICE		1
+/*! \brief WebRTC event subtypes: local candidate */
+#define JANUS_EVENT_SUBTYPE_WEBRTC_LCAND	2
+/*! \brief WebRTC event subtypes: remote candidate */
+#define JANUS_EVENT_SUBTYPE_WEBRTC_RCAND	3
+/*! \brief WebRTC event subtypes: selected pair */
+#define JANUS_EVENT_SUBTYPE_WEBRTC_PAIR		4
+/*! \brief WebRTC event subtypes: DTLS state */
+#define JANUS_EVENT_SUBTYPE_WEBRTC_DTLS		5
+/*! \brief WebRTC event subtypes: PeerConnection state */
+#define JANUS_EVENT_SUBTYPE_WEBRTC_STATE	6
+/*! \brief Media event subtypes: media state */
+#define JANUS_EVENT_SUBTYPE_MEDIA_STATE		1
+/*! \brief Media event subtypes: slow link */
+#define JANUS_EVENT_SUBTYPE_MEDIA_SLOWLINK	2
+/*! \brief Media event subtypes: stats */
+#define JANUS_EVENT_SUBTYPE_MEDIA_STATS		3
 ///@}
 
 #define JANUS_EVENTHANDLER_INIT(...) {			\
@@ -225,7 +266,7 @@ struct janus_eventhandler {
 	 * returned as a response, which will be sent in response to the Admin API call.
 	 * This can be useful to tweak settings in real-time, or to probe the internals
 	 * of the handler plugin for monitoring purposes.
-	 * @param[in] event Jansson object containing the request
+	 * @param[in] request Jansson object containing the request
 	 * @returns A Jansson object containing the response for the client */
 	json_t *(* const handle_request)(json_t *request);
 
