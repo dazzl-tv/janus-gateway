@@ -1,77 +1,80 @@
-dist: trusty
-sudo: false 
-language: C
-compiler: gcc
+language: c
+compiler:
+  - gcc
+  - clang
+
+arch: amd64
+os: linux
+dist: bionic
 
 env:
   global:
-   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
-   #   via the "travis encrypt" command using the project repo's public key
-   - secure: "uoqtYvZyc3cjw0FaQtxKKeVvjY1aVyz6T/nQb234ASeW4NFBOw/Sx0muszlEIBRXCTAcbj4GhmNeG5ZGeZAK2dcVliktVR7W97BPFBBqODB/eUUj0O8FvPKOZU2NEWzr+45EDLpO24KW3Q25rZQb4dFhiMrzUdrWw7XlSWxcsLT6JbhtKiOw558Sdyxnv7bInappedOVWNT7IBiUi4fLyb1n2zaL6QWO5xWCPGDb3y7K4VvdYRep3N5o+v9lFzdqQanl/TnuL7gbtLnZC+ch9hwdHMQNdTMNivxVKeSsDly0f8OhYB6HqL+61QlBd61MSGP/RFlpSAaJ5fFe+sl1Lk/tuJOVPmTYKVcQXbhgrhZ28oQcaiam0t7EwqLJeaySRnbi3WWp9PLiPfxvVkq69VS5GN3uhZmnYzIWw4JzReTeysoLKkc+/AxGJkWd0YhYBJUggQHyNUzH2aaKSs0SIKzKCKf3KSJXBPca1ZlGha9TbbHXc8jkPL3nKxm/xGbRlojBatF2cAvLR8hRiSR17OHmzUT4L7dxVxIf++M4x4WJsyuPpc3Re9fwbxnQKjbOOTaSN30yOewlNKoLT7AxyOZ940huh6zE9ugk/xnmaM3YkUpY98pC6giIK772L6Buz8uSFNHSV4kycWq2qEaIPA/kw3eMIOuVTNWDoye/GKo="
+    - JANUS_COMMON_OPTS="--disable-docs --enable-post-processing --enable-plugin-lua --enable-plugin-duktape --enable-json-logger"
+  jobs:
+    - JANUS_CONFIG_OPTS="" LIBCURL=YES DATACHANNELS=YES
+    - JANUS_CONFIG_OPTS="--disable-data-channels" LIBCURL=YES DATACHANNELS=NO
+    - JANUS_CONFIG_OPTS="--disable-turn-rest-api --disable-sample-event-handler" LIBCURL=NO DATACHANNELS=YES
+
+git:
+  quiet: true
+  depth: 10
 
 addons:
-  apt: 
+  apt:
+    update: true
     packages:
-      - libmicrohttpd-dev
-      - libjansson-dev
-      - libnice-dev
-      - libssl-dev
-      - libsofia-sip-ua-dev
-      - libglib2.0-dev
-      - libcurl4-openssl-dev
+      - autoconf
+      - cmake
       - gengetopt
+      - gtk-doc-tools
+      - libavcodec-dev
+      - libavformat-dev
+      - libavutil-dev
+      - libcollection-dev
       - libconfig-dev
-  coverity_scan:
-    project:
-      name: "dazzl-tv/janus-gateway"
-      description: "Build submitted via Travis CI"
-    notification_email: manux@rioungo.fr
-    build_command_prepend: "./travis.sh janus_configure"
-    build_command:   "./travis.sh janus_build"
-    branch_pattern: coverity_scan
+      - libevent-dev
+      - libglib2.0-dev
+      - libgnutls28-dev
+      - libini-config-dev
+      - liblua5.3-dev
+      - libjansson-dev
+      - libmicrohttpd-dev
+      - libmount-dev
+      - libnanomsg-dev
+      - libogg-dev
+      - libopus-dev
+      - libsofia-sip-ua-dev
+      - libssl-dev
+      - libvorbis-dev
+      - ninja-build
+      - openssl
+      - python3
+      - python3-pip
+      - python3-setuptools
+
+before_install:
+  - pip3 install wheel
+  - pip3 install meson
 
 before_script:
- - cd ..
-# create install directories
- - mkdir -p install/srtp install/boringssl install/usrsctp install/rabbit
-# install libsrtp
- - wget https://github.com/cisco/libsrtp/archive/v2.0.0.tar.gz
- - tar xfv v2.0.0.tar.gz
- - cd libsrtp-2.0.0
- - ./configure --prefix=${HOME}/install/srtp --enable-openssl
- - make shared_library && make install
-# install boringssl
- - cd ..
- - git clone https://boringssl.googlesource.com/boringssl
- - cd boringssl
- - sed -i s/" -Werror"//g CMakeLists.txt
- - mkdir -p build
- - cd build
- - cmake -DCMAKE_CXX_FLAGS="-lrt" ..
- - make
- - cd ..
- - rsync -av include ${HOME}/install/boringssl
- - mkdir -p ${HOME}/install/boringssl/lib
- - cp build/ssl/libssl.a build/crypto/libcrypto.a ${HOME}/install/boringssl/lib
-# install usrsctp
- - cd ..
- - git clone https://github.com/sctplab/usrsctp
- - cd usrsctp
- - ./bootstrap
- - ./configure --prefix=${HOME}/install/usrsctp
- - make && make install
-# install rabbitmq
- - cd ..
- - git clone https://github.com/alanxz/rabbitmq-c
- - cd rabbitmq-c
- - git submodule init
- - git submodule update
- - mkdir build && cd build
- - cmake -DCMAKE_INSTALL_PREFIX=${HOME}/install/rabbit ..
- - make && make install && cd ..
-# back to janus 
- - cd ../janus-gateway
+  - if [ $LIBCURL = YES ]; then sudo apt-get -y install libcurl4-openssl-dev; fi
+  - travis_retry git clone -b master https://gitlab.freedesktop.org/libnice/libnice.git libnice
+  - if [ $CC = clang ]; then LNICE_CFLAGS="-Wno-cast-align"; fi; pushd libnice && meson setup -Dprefix=/usr -Dlibdir=lib -Dc_args="$LNICE_CFLAGS" -Ddebug=false -Doptimization=0 -Dexamples=disabled -Dgtk_doc=disabled -Dgupnp=disabled -Dgstreamer=disabled -Dtests=disabled build && ninja -C build && sudo ninja -C build install && popd
+  - travis_retry git clone -b v2.3.0 https://github.com/cisco/libsrtp.git libsrtp
+  - pushd libsrtp && ./configure --prefix=/usr --enable-openssl && make -j$(nproc) shared_library && sudo make install && popd
+  - if [ $DATACHANNELS = YES ]; then git clone -b master https://github.com/sctplab/usrsctp usrsctp; fi
+  - if [ $DATACHANNELS = YES ]; then pushd usrsctp && ./bootstrap && ./configure --prefix=/usr --disable-static --disable-debug --disable-programs && make -j$(nproc) && sudo make install && popd; fi
+  - travis_retry git clone -b v3.2.2 https://github.com/warmcat/libwebsockets.git libwebsockets
+  - pushd libwebsockets && mkdir -p build && pushd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr -DLWS_WITH_STATIC=OFF -DLWS_WITHOUT_CLIENT=ON -DLWS_WITHOUT_TESTAPPS=ON -DLWS_WITHOUT_TEST_SERVER=ON -DLWS_WITH_HTTP2=OFF .. && make -j$(nproc) && sudo make install && popd && popd
+  - travis_retry git clone -b v0.10.0 https://github.com/alanxz/rabbitmq-c rabbitmq-c
+  - pushd rabbitmq-c && mkdir build && pushd build && cmake -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_TOOLS=OFF .. && sudo cmake --build . --target install -- -j$(nproc) && popd && popd
+  - travis_retry git clone -b v1.3.1 https://github.com/eclipse/paho.mqtt.c.git paho.mqtt.c
+  - pushd paho.mqtt.c && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr -DPAHO_WITH_SSL=TRUE -DPAHO_BUILD_SAMPLES=FALSE -DPAHO_BUILD_DOCUMENTATION=FALSE && make -j$(nproc) && sudo make install && popd
 
 script:
-  - if [ "${COVERITY_SCAN_BRANCH}" != 1 ]; then ./travis.sh janus_all ; fi
-
+  - ./autogen.sh
+  - if [ $LIBCURL = NO ]; then export LCURL=$(sudo find /usr -type f -name libcurl.pc); sudo mv "$LCURL" "$LCURL".bak; fi
+  - ./configure $JANUS_COMMON_OPTS $JANUS_CONFIG_OPTS
+  - if [ $LIBCURL = NO ]; then sudo mv "$LCURL".bak "$LCURL"; fi
+  - make -j$(nproc)
+  - make check-fuzzers
