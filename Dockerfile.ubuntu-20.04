@@ -72,6 +72,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 #Final stage
 FROM ubuntu:20.04
 COPY --from=janus-gw-build /usr/local/bin/janus /usr/local/bin/
+COPY --from=janus-gw-build /usr/local/include/janus/ /usr/local/include/janus/
 COPY --from=janus-gw-build /usr/local/lib/janus/transports/libjanus_rabbitmq.so.0.0.0 \
 /usr/local/lib/janus/transports/
 COPY --from=janus-gw-build /usr/lib/x86_64-linux-gnu/libconfig.so.9 /usr/lib/x86_64-linux-gnu/
@@ -79,7 +80,11 @@ COPY --from=janus-gw-build /lib/libnice.so.10 /lib/
 COPY --from=janus-gw-build /lib/x86_64-linux-gnu/libgio-2.0.so.0 /lib/x86_64-linux-gnu/
 COPY --from=janus-gw-build /lib/x86_64-linux-gnu/libgobject-2.0.so.0 /lib/x86_64-linux-gnu/
 COPY --from=janus-gw-build /lib/x86_64-linux-gnu/libglib-2.0.so.0 /lib/x86_64-linux-gnu/
+COPY --from=janus-gw-build /usr/lib/x86_64-linux-gnu/pkgconfig/glib-2.0.pc \
+/usr/lib/x86_64-linux-gnu/pkgconfig/
 COPY --from=janus-gw-build /lib/x86_64-linux-gnu/libjansson.so.4 /lib/x86_64-linux-gnu/
+COPY --from=janus-gw-build /usr/lib/x86_64-linux-gnu/pkgconfig/jansson.pc \
+/usr/lib/x86_64-linux-gnu/pkgconfig/
 COPY --from=janus-gw-build /lib/x86_64-linux-gnu/libssl.so.1.1 /lib/x86_64-linux-gnu/
 COPY --from=janus-gw-build /lib/x86_64-linux-gnu/libz.so.1 /lib/x86_64-linux-gnu/
 COPY --from=janus-gw-build /lib/libusrsctp.so.2 /lib/
