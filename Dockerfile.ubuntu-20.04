@@ -73,8 +73,9 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 FROM ubuntu:20.04
 COPY --from=janus-gw-build /usr/local/bin/janus /usr/local/bin/
 COPY --from=janus-gw-build /usr/local/include/janus/ /usr/local/include/janus/
-COPY --from=janus-gw-build /usr/local/lib/janus/transports/libjanus_rabbitmq.so.0.0.0 \
+COPY --from=janus-gw-build /usr/local/lib/janus/transports/libjanus_rabbitmq.so \
 /usr/local/lib/janus/transports/
+COPY --from=janus-gw-build /usr/lib/librabbitmq.so.4 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/x86_64-linux-gnu/libconfig.so.9 /usr/lib/x86_64-linux-gnu/
 COPY --from=janus-gw-build /lib/libnice.so.10 /lib/
 COPY --from=janus-gw-build /lib/x86_64-linux-gnu/libgio-2.0.so.0 /lib/x86_64-linux-gnu/
