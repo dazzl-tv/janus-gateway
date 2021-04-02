@@ -19,7 +19,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     wget \
     libjansson-dev \
     libssl-dev \
-    libsofia-sip-ua-dev \
     libglib2.0-dev \
     libini-config-dev \
     libcollection-dev \
