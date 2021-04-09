@@ -1,5 +1,5 @@
-FROM alpine:latest AS janus-gw-build
-LABEL MAINTAINER="emmanuel.riou@dazzl.tv"
+FROM alpine:3.12.3 AS janus-gw-build
+LABEL maintainer="emmanuel.riou@dazzl.tv"
 
 ARG LIBNICE_VER=0.1.17
 ARG LIBSRTP_VER=2.2.0
