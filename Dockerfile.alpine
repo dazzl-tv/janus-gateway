@@ -4,6 +4,7 @@ LABEL maintainer="emmanuel.riou@dazzl.tv"
 ARG LIBNICE_VER=0.1.17
 ARG LIBSRTP_VER=2.2.0
 ARG RABBIT_GIT_COMMIT=2ca1774
+ARG FFMPEG_VER=4.3.2
 
 WORKDIR /root
 
@@ -26,24 +27,37 @@ RUN apk add --update --no-cache --virtual .build-dependencies \
     gengetopt-dev \
     libconfig-dev \
     glib-dev \
+    nasm \
+    x264-dev \
+    && wget https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VER.tar.bz2 \
+    && tar xjvf ffmpeg-$FFMPEG_VER.tar.bz2 \
+    && cd ffmpeg-$FFMPEG_VER \
+    && ./configure --prefix=/usr --enable-gpl --enable-libx264 \
+    --disable-programs --enable-shared \
+    && make \
+    && make install \
+    && cd \
     && wget https://libnice.freedesktop.org/releases/libnice-$LIBNICE_VER.tar.gz \
     && tar xzf libnice-$LIBNICE_VER.tar.gz \
     && rm libnice-$LIBNICE_VER.tar.gz \
     && cd libnice-$LIBNICE_VER \
     && ./autogen.sh \
     && CFLAGS="-DG_DISABLE_ASSERT" ./configure --prefix=/usr \
-    && make && make install && cd .. \
+    && make && make install \
+    && cd \
     && wget https://github.com/cisco/libsrtp/archive/v$LIBSRTP_VER.tar.gz \
     -O libsrtp-v$LIBSRTP_VER.tar.gz \
     && tar xzf libsrtp-v$LIBSRTP_VER.tar.gz \
     && rm libsrtp-v$LIBSRTP_VER.tar.gz && cd libsrtp-$LIBSRTP_VER \
     && ./configure --prefix=/usr --enable-openssl \
-    && make shared_library && make install && cd .. \
+    && make shared_library && make install \
+    && cd \
     && git clone https://github.com/sctplab/usrsctp \
     && cd usrsctp \
     && ./bootstrap \
     && ./configure --prefix=/usr \
-    && make && make install && cd .. \
+    && make && make install \
+    && cd \
     && git clone https://github.com/alanxz/rabbitmq-c \
     && cd rabbitmq-c \
     && git checkout $RABBIT_GIT_COMMIT \
@@ -51,7 +65,8 @@ RUN apk add --update --no-cache --virtual .build-dependencies \
     && git submodule update \
     && autoreconf -i \
     && ./configure --prefix=/usr \
-    && make && make install && cd .. \
+    && make && make install \
+    && cd \
     && cd janus-gateway \
     && sh autogen.sh \
     && ./configure --prefix=/usr/local \
@@ -80,8 +95,22 @@ RUN apk add --update --no-cache --virtual .build-dependencies \
     /var/cache/apk/*
 
 #Final stage
-FROM alpine:latest
+FROM alpine:3.12.3
 
+## ffmpeg libs and dependencies (.pc are needed for the configure of janus plugin)
+COPY --from=janus-gw-build /usr/lib/libswresample.so.3 /usr/lib/
+COPY --from=janus-gw-build /usr/lib/libavformat.so.58 /usr/lib/
+COPY --from=janus-gw-build /usr/lib/libavcodec.so.58 /usr/lib/
+COPY --from=janus-gw-build /usr/lib/libavutil.so.56 /usr/lib/
+COPY --from=janus-gw-build /usr/lib/libx264.so.157 /usr/lib/
+COPY --from=janus-gw-build /usr/lib/pkgconfig/libavformat.pc /usr/lib/pkgconfig/
+COPY --from=janus-gw-build /usr/lib/pkgconfig/libavcodec.pc /usr/lib/pkgconfig/
+COPY --from=janus-gw-build /usr/lib/pkgconfig/libswresample.pc /usr/lib/pkgconfig/
+COPY --from=janus-gw-build /usr/lib/pkgconfig/libavutil.pc /usr/lib/pkgconfig/
+COPY --from=janus-gw-build /usr/include/libavcodec/ /usr/include/libavcodec/
+COPY --from=janus-gw-build /usr/include/libavformat/ /usr/include/libavformat/
+COPY --from=janus-gw-build /usr/include/libswresample/ /usr/include/libswresample/
+COPY --from=janus-gw-build /usr/include/libavutil/ /usr/include/libavutil/
 ## janus binary, includes (to compile plugin), and janus rabbit transport lib
 COPY --from=janus-gw-build /usr/local/bin/janus /usr/local/bin/
 COPY --from=janus-gw-build /usr/local/include/janus/ /usr/local/include/janus/
@@ -94,16 +123,21 @@ COPY --from=janus-gw-build /usr/lib/libgio-2.0.so.0 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libgobject-2.0.so.0 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libglib-2.0.so.0 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libjansson.so.4 /usr/lib/
-COPY --from=janus-gw-build /lib/libssl.so.1.1 /lib/
-COPY --from=janus-gw-build /lib/libz.so.1 /lib/
+COPY --from=janus-gw-build /lib/libssl.so.1.1 /usr/lib/
+COPY --from=janus-gw-build /lib/libz.so.1 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libusrsctp.so.2 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libsrtp2.so.1 /usr/lib/
-COPY --from=janus-gw-build /lib/libcrypto.so.1.1 /lib/
+COPY --from=janus-gw-build /lib/libcrypto.so.1.1 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libgmodule-2.0.so.0 /usr/lib/
-COPY --from=janus-gw-build /lib/libmount.so.1 /lib/
+COPY --from=janus-gw-build /lib/libmount.so.1 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libintl.so.8 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libffi.so.7 /usr/lib/
 COPY --from=janus-gw-build /usr/lib/libpcre.so.1 /usr/lib/
 COPY --from=janus-gw-build /lib/libblkid.so.1 /usr/lib/
 ## libjanus_rabbitmq.so dependencies
 COPY --from=janus-gw-build /usr/lib/librabbitmq.so.4 /usr/lib/
+
+RUN ln -s /usr/lib/libavcodec.so.58 /usr/lib/libavcodec.so \
+    && ln -s /usr/lib/libavformat.so.58 /usr/lib/libavformat.so \
+    && ln -s /usr/lib/libavutil.so.56 /usr/lib/libavutil.so \
+    && ln -s /usr/lib/libswresample.so.3 /usr/lib/libswresample.so
