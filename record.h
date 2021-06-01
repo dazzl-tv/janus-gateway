@@ -38,7 +38,8 @@ typedef enum janus_recorder_medium {
 
 #ifdef RECORD_MULTIPART
 #define NB_MAX_FRAME_VIDEO	10000
-#define NB_MAX_FRAME_AUDIO 	1000000
+//#define NB_MAX_FRAME_AUDIO 	1000000
+#define NB_MAX_FRAME_AUDIO 	100000000
 #endif
 
 /*! \brief Structure that represents a recorder */
@@ -128,3 +129,4 @@ int janus_recorder_close(janus_recorder *recorder);
 void janus_recorder_destroy(janus_recorder *recorder);
 
 #endif
+
