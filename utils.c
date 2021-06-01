@@ -135,6 +135,13 @@ guint64 *janus_uint64_dup(guint64 num) {
 	return numdup;
 }
 
+guint64 janus_uint64_hash(guint64 num) {
+	num = (num ^ (num >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+	num = (num ^ (num >> 27)) * UINT64_C(0x94d049bb133111eb);
+	num = num ^ (num >> 31);
+	return num;
+}
+
 int janus_string_to_uint8(const char *str, uint8_t *num) {
 	if(str == NULL || num == NULL)
 		return -EINVAL;
@@ -287,6 +294,16 @@ int janus_mkdir(const char *dir, mode_t mode) {
 	if(res != 0 && errno != EEXIST)
 		return res;
 	return 0;
+}
+
+gchar *janus_make_absolute_path(const gchar *base_dir, const gchar *path) {
+	if(!path)
+		return NULL;
+	if(g_path_is_absolute(path))
+		return g_strdup(path);
+	if(!base_dir)
+		return NULL;
+	return g_build_filename(base_dir, path, NULL);
 }
 
 int janus_get_codec_pt(const char *sdp, const char *codec) {
@@ -475,7 +492,7 @@ int janus_pidfile_create(const char *file) {
 	/* Write the PID */
 	pid = getpid();
 	if(fprintf(pidf, "%d\n", pid) < 0) {
-		JANUS_LOG(LOG_FATAL, "Error writing PID in file, error %d (%s)\n", errno, strerror(errno));
+		JANUS_LOG(LOG_FATAL, "Error writing PID in file, error %d (%s)\n", errno, g_strerror(errno));
 		fclose(pidf);
 		return -1;
 	}
@@ -521,7 +538,7 @@ gboolean janus_is_folder_protected(const char *path) {
 	resolved[0] = '\0';
 	if(realpath(path, resolved) == NULL && errno != ENOENT) {
 		JANUS_LOG(LOG_ERR, "Error resolving path '%s'... %d (%s)\n",
-			path, errno, strerror(errno));
+			path, errno, g_strerror(errno));
 		return TRUE;
 	}
 	/* Traverse the list of protected folders to see if any match */
@@ -1131,6 +1148,8 @@ int janus_vp9_parse_svc(char *buffer, int len, gboolean *found, janus_vp9_svc_in
 }
 
 inline guint32 janus_push_bits(guint32 word, size_t num, guint32 val) {
+	if(num == 0)
+		return word;
 	return (word << num) | (val & (0xFFFFFFFF>>(32-num)));
 }
 

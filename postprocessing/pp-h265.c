@@ -10,7 +10,7 @@
  */
 
 #include <arpa/inet.h>
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__FreeBSD__)
 #include <machine/endian.h>
 #else
 #include <endian.h>
@@ -331,10 +331,10 @@ int janus_pp_h265_preprocess(FILE *file, janus_pp_frame_packet *list) {
 			/* Parse to get width/height */
 			int width = 0, height = 0;
 			janus_pp_h265_parse_sps(prebuffer, &width, &height);
-			if(width > max_width)
+			if(width*height > max_width*max_height) {
 				max_width = width;
-			if(height > max_height)
 				max_height = height;
+			}
 		} else if(type == 34) {
 			/* PPS */
 			JANUS_LOG(LOG_HUGE, "[PPS] %u/%u/%u/%u\n", fbit, type, lid, tid);

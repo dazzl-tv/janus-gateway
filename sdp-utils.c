@@ -430,16 +430,15 @@ janus_sdp *janus_sdp_parse(const char *sdp, char *error, size_t errlen) {
 						m->proto = g_strdup(proto);
 						m->direction = JANUS_SDP_SENDRECV;
 						m->c_ipv4 = TRUE;
-						if(m->port > 0) {
-							/* Now let's check the payload types/formats */
-							gchar **mline_parts = g_strsplit(line+2, " ", -1);
-							if(!mline_parts) {
-								janus_sdp_mline_destroy(m);
-								if(error)
-									g_snprintf(error, errlen, "Invalid m= line (no payload types/formats): %s", line);
-								success = FALSE;
-								break;
-							}
+						/* Now let's check the payload types/formats */
+						gchar **mline_parts = g_strsplit(line+2, " ", -1);
+						if(!mline_parts && (m->port > 0 || m->type == JANUS_SDP_APPLICATION)) {
+							janus_sdp_mline_destroy(m);
+							if(error)
+								g_snprintf(error, errlen, "Invalid m= line (no payload types/formats): %s", line);
+							success = FALSE;
+							break;
+						} else {
 							int mindex = 0;
 							while(mline_parts[mindex]) {
 								if(mindex < 3) {
@@ -509,10 +508,11 @@ janus_sdp *janus_sdp_parse(const char *sdp, char *error, size_t errlen) {
 					}
 					case 'b': {
 						if(mline->b_name) {
-							if(error)
-								g_snprintf(error, errlen, "Multiple m-line b= lines: %s", line);
-							success = FALSE;
-							break;
+							JANUS_LOG(LOG_WARN, "Ignoring extra m-line b= line: %s\n", line);
+							if(cr != NULL)
+								*cr = '\r';
+							index++;
+							continue;
 						}
 						line += 2;
 						char *semicolon = strchr(line, ':');
@@ -701,64 +701,20 @@ int janus_sdp_get_codec_pt_full(janus_sdp *sdp, const char *codec, const char *p
 			ml = ml->next;
 			continue;
 		}
-		/* Look in all rtpmap attributes */
+		/* Look in all rtpmap attributes first */
 		GList *ma = m->attributes;
 		int pt = -1;
-		gboolean check_profile = FALSE;
-		gboolean got_profile = FALSE;
+		GList *pts = NULL;
 		while(ma) {
 			janus_sdp_attribute *a = (janus_sdp_attribute *)ma->data;
-			if(profile != NULL && a->name != NULL && a->value != NULL && !strcasecmp(a->name, "fmtp")) {
-				if(vp9) {
-					char profile_id[20];
-					g_snprintf(profile_id, sizeof(profile_id), "profile-id=%s", profile);
-					if(strstr(a->value, profile_id) != NULL) {
-						/* Found */
-						JANUS_LOG(LOG_VERB, "VP9 profile %s found --> %d\n", profile, pt);
-						if(check_profile) {
-							return pt;
-						} else {
-							got_profile = TRUE;
-						}
-					}
-				} else if(h264 && strstr(a->value, "packetization-mode=0") == NULL) {
-					/* We only support packetization-mode=1, no matter the profile */
-					char profile_level_id[30];
-					char *profile_lower = g_ascii_strdown(profile, -1);
-					g_snprintf(profile_level_id, sizeof(profile_level_id), "profile-level-id=%s", profile_lower);
-					g_free(profile_lower);
-					if(strstr(a->value, profile_level_id) != NULL) {
-						/* Found */
-						JANUS_LOG(LOG_VERB, "H.264 profile %s found --> %d\n", profile, pt);
-						if(check_profile) {
-							return pt;
-						} else {
-							got_profile = TRUE;
-						}
-					}
-					/* Not found, try converting the profile to upper case */
-					char *profile_upper = g_ascii_strup(profile, -1);
-					g_snprintf(profile_level_id, sizeof(profile_level_id), "profile-level-id=%s", profile_upper);
-					g_free(profile_upper);
-					if(strstr(a->value, profile_level_id) != NULL) {
-						/* Found */
-						JANUS_LOG(LOG_VERB, "H.264 profile %s found --> %d\n", profile, pt);
-						if(check_profile) {
-							return pt;
-						} else {
-							got_profile = TRUE;
-						}
-					}
-				}
-			} else if(a->name != NULL && a->value != NULL && !strcasecmp(a->name, "rtpmap")) {
+			if(a->name != NULL && a->value != NULL && !strcasecmp(a->name, "rtpmap")) {
 				pt = atoi(a->value);
-				check_profile = FALSE;
 				if(pt < 0) {
 					JANUS_LOG(LOG_ERR, "Invalid payload type (%s)\n", a->value);
 				} else if(strstr(a->value, format) || strstr(a->value, format2)) {
-					if(profile != NULL && !got_profile && (vp9 || h264)) {
-						/* Let's check the profile first */
-						check_profile = TRUE;
+					if(profile != NULL && (vp9 || h264)) {
+						/* Let's keep track of this payload type */
+						pts = g_list_append(pts, GINT_TO_POINTER(pt));
 					} else {
 						/* Payload type for codec found */
 						return pt;
@@ -767,6 +723,54 @@ int janus_sdp_get_codec_pt_full(janus_sdp *sdp, const char *codec, const char *p
 			}
 			ma = ma->next;
 		}
+		if(profile != NULL) {
+			/* Now look for the profile in the fmtp attributes */
+			ma = m->attributes;
+			while(ma) {
+				janus_sdp_attribute *a = (janus_sdp_attribute *)ma->data;
+				if(profile != NULL && a->name != NULL && a->value != NULL && !strcasecmp(a->name, "fmtp")) {
+					/* Does this match the payload types we're looking for? */
+					pt = atoi(a->value);
+					if(g_list_find(pts, GINT_TO_POINTER(pt)) == NULL) {
+						/* Not what we're looking for */
+						ma = ma->next;
+						continue;
+					}
+					if(vp9) {
+						char profile_id[20];
+						g_snprintf(profile_id, sizeof(profile_id), "profile-id=%s", profile);
+						if(strstr(a->value, profile_id) != NULL) {
+							/* Found */
+							JANUS_LOG(LOG_VERB, "VP9 profile %s found --> %d\n", profile, pt);
+							return pt;
+						}
+					} else if(h264 && strstr(a->value, "packetization-mode=0") == NULL) {
+						/* We only support packetization-mode=1, no matter the profile */
+						char profile_level_id[30];
+						char *profile_lower = g_ascii_strdown(profile, -1);
+						g_snprintf(profile_level_id, sizeof(profile_level_id), "profile-level-id=%s", profile_lower);
+						g_free(profile_lower);
+						if(strstr(a->value, profile_level_id) != NULL) {
+							/* Found */
+							JANUS_LOG(LOG_VERB, "H.264 profile %s found --> %d\n", profile, pt);
+							return pt;
+						}
+						/* Not found, try converting the profile to upper case */
+						char *profile_upper = g_ascii_strup(profile, -1);
+						g_snprintf(profile_level_id, sizeof(profile_level_id), "profile-level-id=%s", profile_upper);
+						g_free(profile_upper);
+						if(strstr(a->value, profile_level_id) != NULL) {
+							/* Found */
+							JANUS_LOG(LOG_VERB, "H.264 profile %s found --> %d\n", profile, pt);
+							return pt;
+						}
+					}
+				}
+				ma = ma->next;
+			}
+		}
+		if(pts != NULL)
+			g_list_free(pts);
 		ml = ml->next;
 	}
 	return -1;
@@ -934,7 +938,7 @@ char *janus_sdp_write(janus_sdp *imported) {
 		janus_sdp_mline *m = (janus_sdp_mline *)temp->data;
 		g_snprintf(buffer, sizeof(buffer), "m=%s %d %s", m->type_str, m->port, m->proto);
 		g_strlcat(sdp, buffer, JANUS_BUFSIZE);
-		if(m->port == 0) {
+		if(m->port == 0 && m->type != JANUS_SDP_APPLICATION) {
 			/* Remove all payload types/formats if we're rejecting the media */
 			g_list_free_full(m->fmts, (GDestroyNotify)g_free);
 			m->fmts = NULL;
@@ -1218,7 +1222,7 @@ janus_sdp *janus_sdp_generate_offer(const char *name, const char *address, ...) 
 	}
 	if(audio_codec == NULL)
 		audio_codec = "opus";
-	const char *audio_rtpmap = janus_sdp_get_codec_rtpmap(audio_codec);
+	const char *audio_rtpmap = do_audio ? janus_sdp_get_codec_rtpmap(audio_codec) : NULL;
 	if(do_audio && audio_rtpmap == NULL) {
 		JANUS_LOG(LOG_ERR, "Unsupported audio codec '%s', can't prepare an offer\n", audio_codec);
 		va_end(args);
@@ -1234,7 +1238,7 @@ janus_sdp *janus_sdp_generate_offer(const char *name, const char *address, ...) 
 	}
 	if(video_codec == NULL)
 		video_codec = "vp8";
-	const char *video_rtpmap = janus_sdp_get_codec_rtpmap(video_codec);
+	const char *video_rtpmap = do_video ? janus_sdp_get_codec_rtpmap(video_codec) : NULL;
 	if(do_video && video_rtpmap == NULL) {
 		JANUS_LOG(LOG_ERR, "Unsupported video codec '%s', can't prepare an offer\n", video_codec);
 		va_end(args);
@@ -1498,6 +1502,13 @@ janus_sdp *janus_sdp_generate_answer(janus_sdp *offer, ...) {
 			if(!do_data || data > 1) {
 				/* Reject */
 				am->port = 0;
+				/* Add the format anyway, to keep Firefox happy */
+				GList *fmt = m->fmts;
+				if(fmt) {
+					char *fmt_str = (char *)fmt->data;
+					if(fmt_str)
+						am->fmts = g_list_append(am->fmts, g_strdup(fmt_str));
+				}
 				temp = temp->next;
 				continue;
 			}

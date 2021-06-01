@@ -182,7 +182,8 @@ $(document).ready(function() {
 									var addButtons = false;
 									if($('#remotevideo').length === 0) {
 										addButtons = true;
-										$('#stream').append('<video class="rounded centered hide" id="remotevideo" width=320 height=240 autoplay playsinline/>');
+										$('#stream').append('<video class="rounded centered hide" id="remotevideo" width="100%" height="100%" playsinline/>');
+										$('#remotevideo').get(0).volume = 0;
 										// Show the stream and hide the spinner when we get a playing event
 										$("#remotevideo").bind("playing", function () {
 											$('#waitingvideo').remove();
@@ -208,6 +209,8 @@ $(document).ready(function() {
 										});
 									}
 									Janus.attachMediaStream($('#remotevideo').get(0), stream);
+									$("#remotevideo").get(0).play();
+									$("#remotevideo").get(0).volume = 1;
 									var videoTracks = stream.getVideoTracks();
 									if(!videoTracks || videoTracks.length === 0) {
 										// No remote video
@@ -360,7 +363,7 @@ function startStream() {
 	var body = { request: "watch", id: parseInt(selectedStream) || selectedStream};
 	streaming.send({ message: body });
 	// No remote video yet
-	$('#stream').append('<video class="rounded centered" id="waitingvideo" width=320 height=240 />');
+	$('#stream').append('<video class="rounded centered" id="waitingvideo" width="100%" height="100%" />');
 	if(spinner == null) {
 		var target = document.getElementById('stream');
 		spinner = new Spinner({top:100}).spin(target);
