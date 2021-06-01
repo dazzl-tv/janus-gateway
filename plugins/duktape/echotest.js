@@ -173,16 +173,16 @@ function hangupMedia(id) {
 	}
 }
 
-function incomingTextData(id, buf, len) {
+function incomingTextData(id, buf, len, label, protocol) {
 	// Relaying RTP/RTCP in JavaScript makes no sense, but just for fun
 	// we handle data channel messages ourselves to manipulate them
 	var edit = "[" + name + "] --> " + buf;
-	relayTextData(id, edit, edit.length);
+	relayTextData(id, edit, edit.length, label, protocol);
 }
 
-function incomingBinaryData(id, buf, len) {
+function incomingBinaryData(id, buf, len, label, protocol) {
 	// If the data we're getting is binary, send it back as it is
-	relayBinaryData(id, buf, len);
+	relayBinaryData(id, buf, len, label, protocol);
 }
 
 function dataReady(id) {
@@ -191,6 +191,26 @@ function dataReady(id) {
 	// invoked at least once), but also when the datachannel is ready to
 	// receive more data (buffers are empty), which means it can be used
 	// to throttle outgoing data and not send too much at a time.
+}
+
+function substreamChanged(id, substream) {
+	// If simulcast is used, this callback is invoked when the substream
+	// we're sending to this session changes: 0=low, 1=medium, 2=high
+	console.log("Substream changed for session " + id + ": " + substream);
+	// Let's send an event so that the user is aware
+	var event = { echotest: "event", videocodec: "vp8", substream: substream };
+	var jsonevent = JSON.stringify(event);
+	pushEvent(id, null, jsonevent, null);
+}
+
+function temporalLayerChanged(id, temporal) {
+	// If simulcast is used, this callback is invoked when the temporal
+	// layer we're sending to this session changes: 0=lowfps, 1=maxfps
+	console.log("Temporal layer changed for session " + id + ": " + temporal);
+	// Let's send an event so that the user is aware
+	var event = { echotest: "event", videocodec: "vp8", temporal: temporal };
+	var jsonevent = JSON.stringify(event);
+	pushEvent(id, null, jsonevent, null);
 }
 
 function resumeScheduler() {
@@ -239,6 +259,17 @@ function processRequest(id, msg) {
 	}
 	if(msg["bitrate"] !== null && msg["bitrate"] !== undefined) {
 		setBitrate(id, msg["bitrate"]);
+	}
+	if(msg["substream"] !== null && msg["substream"] !== undefined) {
+		setSubstream(id, msg["substream"]);
+		sendPli(id);
+	}
+	if(msg["temporal"] !== null && msg["temporal"] !== undefined) {
+		setTemporalLayer(id, msg["temporal"]);
+		sendPli(id);
+	}
+	if(msg["keyframe"] !== null && msg["keyframe"] !== undefined) {
+		sendPli(id);
 	}
 	if(msg["record"] === true) {
 		var fnbase = msg["filename"];

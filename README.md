@@ -1,20 +1,11 @@
 Janus WebRTC Server
 ===================
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-brightgreen.svg)](COPYING)
-[![Build Status](https://travis-ci.com/meetecho/janus-gateway.svg?branch=master)](https://travis-ci.com/meetecho/janus-gateway)
+![janus-ci](https://github.com/meetecho/janus-gateway/workflows/janus-ci/badge.svg)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/13265/badge.svg)](https://scan.coverity.com/projects/meetecho-janus-gateway)
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/janus-gateway.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:janus-gateway)
-[![Docker Repository on Quay](https://quay.io/repository/dazzl/janus-gateway/status "Docker Repository on Quay")](https://quay.io/repository/dazzl/janus-gateway)
-
 
 Janus is an open source, general purpose, WebRTC server designed and developed by [Meetecho](http://www.meetecho.com). This version of the server is tailored for Linux systems, although it can be compiled for, and installed on, MacOS machines as well. Windows is not supported, but if that's a requirement, Janus is known to work in the "Windows Subsystem for Linux" on Windows 10: do **NOT** trust repos that provide .exe builds of Janus, they are not official and will not be supported.
-
-[![Travis status](https://api.travis-ci.org/repositories/dazzl-tv/janus-gateway.svg?branch=dazzl-develop)](https://www.travis-ci.org/dazzl-tv/janus-gateway)
-
-Janus is an open source, general purpose, WebRTC gateway designed and
-developed by [Meetecho](http://www.meetecho.com). This version
-of the gateway can only be installed on Linux systems: next versions
-will take into account cross compilation on different environments.
 
 For some online demos and documentations, make sure you pay the [project website](https://janus.conf.meetecho.com/) a visit!
 
@@ -28,7 +19,7 @@ To install it, you'll need to satisfy the following dependencies:
 * [libconfig](https://hyperrealm.github.io/libconfig/)
 * [libnice](https://libnice.freedesktop.org/) (at least v0.1.16 suggested, master recommended)
 * [OpenSSL](http://www.openssl.org/) (at least v1.0.1e)
-* [libsrtp](https://github.com/cisco/libsrtp) (at least v1.5 suggested)
+* [libsrtp](https://github.com/cisco/libsrtp) (at least v2.x suggested)
 * [usrsctp](https://github.com/sctplab/usrsctp) (only needed if you are interested in Data Channels)
 * [libmicrohttpd](http://www.gnu.org/software/libmicrohttpd/) (at least v0.9.59; only needed if you are interested in REST support for the Janus API)
 * [libwebsockets](https://libwebsockets.org/) (only needed if you are interested in WebSockets support for the Janus API)
@@ -69,12 +60,6 @@ On Ubuntu or Debian, it would require something like this:
 		libopus-dev libogg-dev libcurl4-openssl-dev liblua5.3-dev \
 		libconfig-dev pkg-config gengetopt libtool automake
 
-On MacOS homebrew can be used to install all the dependencies. You might though have problems
-with some packages which are not in the main repository. As of the date of this writing, this is
-the case for libnice, that has to installed using boneyard repository:
-
-	brew install homebrew/boneyard/libnice
-
 * *Note:* please notice that libopus may not be available out of the box on your distro. In that case, you'll have to [install it manually](http://www.opus-codec.org).
 
 While `libnice` is typically available in most distros as a package, the version available out of the box in Ubuntu is known to cause problems. As such, we always recommend manually compiling and installing the master version of libnice.
@@ -88,15 +73,7 @@ To build libnice, you need Python 3, Meson and Ninja:
 
 In case you're interested in compiling the sample Event Handler plugin, you'll need to install the development version of libcurl as well (usually `libcurl-devel` on Fedora/CentOS, `libcurl4-openssl-dev` on Ubuntu/Debian).
 
-If your distro ships a pre-1.5 version of libsrtp, you'll have to uninstall that version and [install 1.5.x, 1.6.x or 2.x manually](https://github.com/cisco/libsrtp/releases). In fact, 1.4.x is known to cause several issues with WebRTC. Installation of version 1.5.4 is quite straightforward:
-
-	wget https://github.com/cisco/libsrtp/archive/v1.5.4.tar.gz
-	tar xfv v1.5.4.tar.gz
-	cd libsrtp-1.5.4
-	./configure --prefix=/usr --enable-openssl
-	make shared_library && sudo make install
-
-The instructions for version 2.x are practically the same. Notice that the following steps are for version 2.2.0, but there may be more recent versions available:
+If your distro ships a pre-1.5 version of libsrtp, you'll have to uninstall that version and [install 1.5.x, 1.6.x or 2.x manually](https://github.com/cisco/libsrtp/releases). In fact, 1.4.x is known to cause several issues with WebRTC. While 1.5.x is supported, we recommend installing 2.x instead Notice that the following steps are for version 2.2.0, but there may be more recent versions available:
 
 	wget https://github.com/cisco/libsrtp/archive/v2.2.0.tar.gz
 	tar xfv v2.2.0.tar.gz
@@ -136,7 +113,8 @@ For what concerns usrsctp, which is needed for Data Channels support, it is usua
 	git clone https://github.com/sctplab/usrsctp
 	cd usrsctp
 	./bootstrap
-	./configure --prefix=/usr && make && sudo make install
+	./configure --prefix=/usr --disable-programs --disable-inet --disable-inet6
+	make && sudo make install
 
 * *Note:* you may need to pass `--libdir=/usr/lib64` to the configure script if you're installing on a x86_64 distribution.
 
@@ -149,7 +127,8 @@ The same applies for libwebsockets, which is needed for the optional WebSockets 
 	mkdir build
 	cd build
 	# See https://github.com/meetecho/janus-gateway/issues/732 re: LWS_MAX_SMP
-	cmake -DLWS_MAX_SMP=1 -DCMAKE_INSTALL_PREFIX:PATH=/usr -DCMAKE_C_FLAGS="-fpic" ..
+	# See https://github.com/meetecho/janus-gateway/issues/2476 re: LWS_WITHOUT_EXTENSIONS
+	cmake -DLWS_MAX_SMP=1 -DLWS_WITHOUT_EXTENSIONS=0 -DCMAKE_INSTALL_PREFIX:PATH=/usr -DCMAKE_C_FLAGS="-fpic" ..
 	make && sudo make install
 
 * *Note:* if libwebsockets.org is unreachable for any reason, replace the first line with this:
@@ -228,14 +207,17 @@ If Doxygen and graphviz are available, the process can also build the documentat
 
 You can also selectively enable/disable other features (e.g., specific plugins you don't care about, or whether or not you want to build the recordings post-processor). Use the --help option when configuring for more info.
 
-On MacOS some difficulties were experienced with the configure script (issue with pkg-config?), which for some reason didn't set up correctly compiler environnement variables (CFLAGS, LDFLAGS, LIBS). This is an example of a configure that works, with boringssh instead of openssl, as well as microhttpd and rabbitmq libraries (tested on MacOSX 10.11.6):
+### Building on FreeBSD
+* *Note*: rtp_forward of streams only works streaming to IPv6,
+because of #2051 and thus the feature is not supported on FreeBSD at the moment.
 
-	./configure LIBS="$LIBS -lnice -ljansson -lglib-2.0 -lgobject-2.0 -lcrypto -lssl -lrabbitmq -lmicrohttpd" \
-		JANUS_CFLAGS="-I/opt/boringssl/include/" JANUS_LIBS="-L/opt/boringssl/lib/ -L/usr/local/lib/"     \
-		CFLAGS="$CFLAGS -I/usr/local/include -I/usr/local/include/glib-2.0 \ 
-		-I/usr/local/Cellar/libnice/0.1.7/include/nice/ -I/usr/local/Cellar/libnice/0.1.7/include/stun/   \
-		-I/opt/boringssl/include/" LDFLAGS="-L/opt/boringssl/lib/ -L/usr/local/lib/" --prefix=/opt/janus  \
-		--enable-boringssl --disable-data-channels --disable-websockets --disable-mqtt --disable-unix-sockets
+When building on FreeBSD you can install the depencencies from ports or packages, here only pkg method is used. You also need to use `gmake` instead of `make`,
+since it is a GNU makefile. `./configure` can be run without arguments since the default prefix is `/usr/local` which is your default `LOCALBASE`.
+Note that the `configure.ac` is coded to use openssl in base. If you wish to use openssl from ports or any other ssl you must change `configure.ac` accordingly.
+
+	pkg install libsrtp2 libusrsctp jansson libnice libmicrohttpd libwebsockets curl opus sofia-sip libogg jansson libnice libconfig \
+        libtool gmake autoconf autoconf-wrapper glib gengetopt
+
 
 ### Building on MacOS
 While most of the above instructions will work when compiling Janus on MacOS as well, there are a few aspects to highlight when doing that.

@@ -69,6 +69,7 @@ int janus_pfunix_send_message(janus_transport_session *transport, void *request_
 void janus_pfunix_session_created(janus_transport_session *transport, guint64 session_id);
 void janus_pfunix_session_over(janus_transport_session *transport, guint64 session_id, gboolean timeout, gboolean claimed);
 void janus_pfunix_session_claimed(janus_transport_session *transport, guint64 session_id);
+json_t *janus_pfunix_query_transport(json_t *request);
 
 
 /* Transport setup */
@@ -92,6 +93,8 @@ static janus_transport janus_pfunix_transport =
 		.session_created = janus_pfunix_session_created,
 		.session_over = janus_pfunix_session_over,
 		.session_claimed = janus_pfunix_session_claimed,
+
+		.query_transport = janus_pfunix_query_transport,
 	);
 
 /* Transport creator */
@@ -110,6 +113,21 @@ static gboolean notify_events = TRUE;
 static size_t json_format = JSON_INDENT(3) | JSON_PRESERVE_ORDER;
 
 #define BUFFER_SIZE		8192
+
+/* Parameter validation (for tweaking and queries via Admin API) */
+static struct janus_json_parameter request_parameters[] = {
+	{"request", JSON_STRING, JANUS_JSON_PARAM_REQUIRED}
+};
+static struct janus_json_parameter configure_parameters[] = {
+	{"events", JANUS_JSON_BOOL, 0},
+	{"json", JSON_STRING, 0},
+};
+/* Error codes (for the tweaking and queries via Admin API) */
+#define JANUS_PFUNIX_ERROR_INVALID_REQUEST		411
+#define JANUS_PFUNIX_ERROR_MISSING_ELEMENT		412
+#define JANUS_PFUNIX_ERROR_INVALID_ELEMENT		413
+#define JANUS_PFUNIX_ERROR_UNKNOWN_ERROR		499
+
 
 struct sockaddr_un sizecheck;
 #ifndef UNIX_PATH_MAX
@@ -144,7 +162,7 @@ static janus_mutex clients_mutex = JANUS_MUTEX_INITIALIZER;
 static void janus_pfunix_client_free(void *client_ref) {
 	if(!client_ref)
 		return;
-	JANUS_LOG(LOG_WARN, "Freeing unix sockets client\n");
+	JANUS_LOG(LOG_INFO, "Freeing unix sockets client\n");
 	janus_pfunix_client *client = (janus_pfunix_client *) client_ref;
 	if(client->messages != NULL) {
 		char *response = NULL;
@@ -170,7 +188,7 @@ static int janus_pfunix_create_socket(char *pfname, gboolean use_dgram) {
 	int flags = use_dgram ? SOCK_DGRAM | SOCK_NONBLOCK : SOCK_SEQPACKET | SOCK_NONBLOCK;
 	fd = socket(use_dgram ? AF_UNIX : PF_UNIX, flags, 0);
 	if(fd < 0) {
-		JANUS_LOG(LOG_FATAL, "Unix Sockets %s creation failed: %d, %s\n", pfname, errno, strerror(errno));
+		JANUS_LOG(LOG_FATAL, "Unix Sockets %s creation failed: %d, %s\n", pfname, errno, g_strerror(errno));
 	} else {
 		/* Unlink before binding */
 		unlink(pfname);
@@ -181,7 +199,7 @@ static int janus_pfunix_create_socket(char *pfname, gboolean use_dgram) {
 		g_snprintf(address.sun_path, UNIX_PATH_MAX, "%s", pfname);
 		JANUS_LOG(LOG_VERB, "Binding Unix Socket %s... (Janus API)\n", pfname);
 		if(bind(fd, (struct sockaddr *)&address, sizeof(address)) != 0) {
-			JANUS_LOG(LOG_FATAL, "Bind for Unix Socket %s failed: %d, %s\n", pfname, errno, strerror(errno));
+			JANUS_LOG(LOG_FATAL, "Bind for Unix Socket %s failed: %d, %s\n", pfname, errno, g_strerror(errno));
 			close(fd);
 			fd = -1;
 			return fd;
@@ -189,7 +207,7 @@ static int janus_pfunix_create_socket(char *pfname, gboolean use_dgram) {
 		if(!use_dgram) {
 			JANUS_LOG(LOG_VERB, "Listening on Unix Socket %s...\n", pfname);
 			if(listen(fd, 128) != 0) {
-				JANUS_LOG(LOG_FATAL, "Listening on Unix Socket %s failed: %d, %s\n", pfname, errno, strerror(errno));
+				JANUS_LOG(LOG_FATAL, "Listening on Unix Socket %s failed: %d, %s\n", pfname, errno, g_strerror(errno));
 				close(fd);
 				fd = -1;
 			}
@@ -257,14 +275,14 @@ int janus_pfunix_init(janus_transport_callbacks *callback, const char *config_pa
 
 		/* First of all, initialize the socketpair for writeable notifications */
 		if(socketpair(PF_LOCAL, SOCK_STREAM, 0, write_fd) < 0) {
-			JANUS_LOG(LOG_FATAL, "Error creating socket pair for writeable events: %d, %s\n", errno, strerror(errno));
+			JANUS_LOG(LOG_FATAL, "Error creating socket pair for writeable events: %d, %s\n", errno, g_strerror(errno));
 			return -1;
 		}
 
 		/* Setup the Janus API Unix Sockets server(s) */
 		item = janus_config_get(config, config_general, janus_config_type_item, "enabled");
 		if(!item || !item->value || !janus_is_true(item->value)) {
-			JANUS_LOG(LOG_WARN, "Unix Sockets server disabled (Janus API)\n");
+			JANUS_LOG(LOG_VERB, "Unix Sockets server disabled (Janus API)\n");
 		} else {
 			item = janus_config_get(config, config_general, janus_config_type_item, "path");
 			char *pfname = (char *)(item && item->value ? item->value : NULL);
@@ -295,7 +313,7 @@ int janus_pfunix_init(janus_transport_callbacks *callback, const char *config_pa
 		/* Do the same for the Admin API, if enabled */
 		item = janus_config_get(config, config_admin, janus_config_type_item, "admin_enabled");
 		if(!item || !item->value || !janus_is_true(item->value)) {
-			JANUS_LOG(LOG_WARN, "Unix Sockets server disabled (Admin API)\n");
+			JANUS_LOG(LOG_VERB, "Unix Sockets server disabled (Admin API)\n");
 		} else {
 			item = janus_config_get(config, config_admin, janus_config_type_item, "admin_path");
 			char *pfname = (char *)(item && item->value ? item->value : NULL);
@@ -431,6 +449,10 @@ int janus_pfunix_send_message(janus_transport_session *transport, void *request_
 	/* Convert to string */
 	char *payload = json_dumps(message, json_format);
 	json_decref(message);
+	if(payload == NULL) {
+		JANUS_LOG(LOG_ERR, "Failed to stringify message...\n");
+		return -1;
+	}
 	if(client->fd != -1) {
 		/* SOCK_SEQPACKET, enqueue the packet and have poll tell us when it's time to send it */
 		g_async_queue_push(client->messages, payload);
@@ -475,6 +497,90 @@ void janus_pfunix_session_over(janus_transport_session *transport, guint64 sessi
 void janus_pfunix_session_claimed(janus_transport_session *transport, guint64 session_id) {
 	/* We don't care about this. We should start receiving messages from the core about this session: no action necessary */
 	/* FIXME Is the above statement accurate? Should we care? Unlike the HTTP transport, there is no hashtable to update */
+}
+
+json_t *janus_pfunix_query_transport(json_t *request) {
+	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized)) {
+		return NULL;
+	}
+	/* We can use this request to dynamically change the behaviour of
+	 * the transport plugin, and/or query for some specific information */
+	json_t *response = json_object();
+	int error_code = 0;
+	char error_cause[512];
+	JANUS_VALIDATE_JSON_OBJECT(request, request_parameters,
+		error_code, error_cause, TRUE,
+		JANUS_PFUNIX_ERROR_MISSING_ELEMENT, JANUS_PFUNIX_ERROR_INVALID_ELEMENT);
+	if(error_code != 0)
+		goto plugin_response;
+	/* Get the request */
+	const char *request_text = json_string_value(json_object_get(request, "request"));
+	if(!strcasecmp(request_text, "configure")) {
+		/* We only allow for the configuration of some basic properties:
+		 * changing more complex things (e.g., port to bind to, etc.)
+		 * would likely require restarting backends, so just too much */
+		JANUS_VALIDATE_JSON_OBJECT(request, configure_parameters,
+			error_code, error_cause, TRUE,
+			JANUS_PFUNIX_ERROR_MISSING_ELEMENT, JANUS_PFUNIX_ERROR_INVALID_ELEMENT);
+		/* Check if we now need to send events to handlers */
+		json_object_set_new(response, "result", json_integer(200));
+		json_t *notes = NULL;
+		gboolean events = json_is_true(json_object_get(request, "events"));
+		if(events && !gateway->events_is_enabled()) {
+			/* Notify that this will be ignored */
+			notes = json_array();
+			json_array_append_new(notes, json_string("Event handlers disabled at the core level"));
+			json_object_set_new(response, "notes", notes);
+		}
+		if(events != notify_events) {
+			notify_events = events;
+			if(!notify_events && gateway->events_is_enabled()) {
+				JANUS_LOG(LOG_WARN, "Notification of events to handlers disabled for %s\n", JANUS_PFUNIX_NAME);
+			}
+		}
+		const char *indentation = json_string_value(json_object_get(request, "json"));
+		if(indentation != NULL) {
+			if(!strcasecmp(indentation, "indented")) {
+				/* Default: indented, we use three spaces for that */
+				json_format = JSON_INDENT(3) | JSON_PRESERVE_ORDER;
+			} else if(!strcasecmp(indentation, "plain")) {
+				/* Not indented and no new lines, but still readable */
+				json_format = JSON_INDENT(0) | JSON_PRESERVE_ORDER;
+			} else if(!strcasecmp(indentation, "compact")) {
+				/* Compact, so no spaces between separators */
+				json_format = JSON_COMPACT | JSON_PRESERVE_ORDER;
+			} else {
+				JANUS_LOG(LOG_WARN, "Unsupported JSON format option '%s', ignoring tweak\n", indentation);
+				/* Notify that this will be ignored */
+				if(notes == NULL) {
+					notes = json_array();
+					json_object_set_new(response, "notes", notes);
+				}
+				json_array_append_new(notes, json_string("Ignored unsupported indentation format"));
+			}
+		}
+	} else if(!strcasecmp(request_text, "connections")) {
+		/* Return the number of active connections currently handled by the plugin */
+		json_object_set_new(response, "result", json_integer(200));
+		janus_mutex_lock(&clients_mutex);
+		guint connections = g_hash_table_size(clients);
+		janus_mutex_unlock(&clients_mutex);
+		json_object_set_new(response, "connections", json_integer(connections));
+	} else {
+		JANUS_LOG(LOG_VERB, "Unknown request '%s'\n", request_text);
+		error_code = JANUS_PFUNIX_ERROR_INVALID_REQUEST;
+		g_snprintf(error_cause, 512, "Unknown request '%s'", request_text);
+	}
+
+plugin_response:
+		{
+			if(error_code != 0) {
+				/* Prepare JSON error event */
+				json_object_set_new(response, "error_code", json_integer(error_code));
+				json_object_set_new(response, "error", json_string(error_cause));
+			}
+			return response;
+		}
 }
 
 
@@ -534,10 +640,10 @@ void *janus_pfunix_thread(void *data) {
 			continue;
 		if(res < 0) {
 			if(errno == EINTR) {
-				JANUS_LOG(LOG_HUGE, "Got an EINTR (%s) polling the Unix Sockets descriptors, ignoring...\n", strerror(errno));
+				JANUS_LOG(LOG_HUGE, "Got an EINTR (%s) polling the Unix Sockets descriptors, ignoring...\n", g_strerror(errno));
 				continue;
 			}
-			JANUS_LOG(LOG_ERR, "poll() failed: %d (%s)\n", errno, strerror(errno));
+			JANUS_LOG(LOG_ERR, "poll() failed: %d (%s)\n", errno, g_strerror(errno));
 			break;
 		}
 		int i = 0;
@@ -553,7 +659,7 @@ void *janus_pfunix_thread(void *data) {
 					close(write_fd[1]);
 					write_fd[1] = -1;
 					if(socketpair(PF_LOCAL, SOCK_STREAM, 0, write_fd) < 0) {
-						JANUS_LOG(LOG_FATAL, "Error creating socket pair for writeable events: %d, %s\n", errno, strerror(errno));
+						JANUS_LOG(LOG_FATAL, "Error creating socket pair for writeable events: %d, %s\n", errno, g_strerror(errno));
 						continue;
 					}
 				} else if(poll_fds[i].fd == pfd) {

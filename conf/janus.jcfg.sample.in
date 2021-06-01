@@ -206,6 +206,17 @@ media: {
 	#twcc_period = 100
 	#dtls_timeout = 500
 
+	# Janus can do some optimizations on the NACK queue, specifically when
+	# keyframes are involved. Namely, you can configure Janus so that any
+	# time a keyframe is sent to a user, the NACK buffer for that connection
+	# is emptied. This allows Janus to ignore NACK requests for packets
+	# sent shortly before the keyframe was sent, since it can be assumed
+	# that the keyframe will restore a complete working image for the user
+	# anyway (which is the main reason why video retransmissions are typically
+	# required). While this optimization is known to work fine in most cases,
+	# it can backfire in some edge cases, and so is disabled by default.
+	#nack_optimizations = true
+
 	# If you need DSCP packet marking and prioritization, you can configure
 	# the 'dscp' property to a specific values, and Janus will try to
 	# set it on all outgoing packets using libnice. Normally, the specs
@@ -228,7 +239,15 @@ media: {
 # configured to do full-trickle (Janus also trickles its candidates to
 # users) rather than the default half-trickle (Janus supports trickle
 # candidates from users, but sends its own within the SDP), and whether
-# it should work in ICE-Lite mode (by default it doesn't). Finally,
+# it should work in ICE-Lite mode (by default it doesn't). If libnice is
+# at least 0.1.15, you can choose which ICE nomination mode to use: valid
+# values are "regular" and "aggressive" (the default depends on the libnice
+# version itself; if we can set it, we set aggressive nomination). You can
+# also configure whether to use connectivity checks as keep-alives, which
+# might help detecting when a peer is no longer available (notice that
+# current libnice master is breaking connections after 50 seconds when
+# keepalive-conncheck is being used, so if you want to use it, better
+# sticking to 0.1.18 until the issue is addressed upstream). Finally,
 # you can also enable ICE-TCP support (beware that this may lead to problems
 # if you do not enable ICE Lite as well), choose which interfaces should
 # be used for gathering candidates, and enable or disable the
@@ -238,6 +257,8 @@ nat: {
 	#stun_port = 3478
 	nice_debug = false
 	#full_trickle = true
+	#ice_nomination = "regular"
+	#ice_keepalive_conncheck = true
 	#ice_lite = true
 	#ice_tcp = true
 
@@ -261,6 +282,9 @@ nat: {
 	# If you'd rather keep the private IP address in place, rather than
 	# replacing it (and so have both of them as advertised candidates),
 	# then set the 'keep_private_host' property to true.
+	# Multiple public IP addresses can be specified as a comma separated list
+	# if the Janus is deployed in a DMZ between two 1-1 NAT for internal and
+	# external users.
 	#nat_1_1_mapping = "1.2.3.4"
 	#keep_private_host = true
 
@@ -280,12 +304,15 @@ nat: {
 	# which is currently available in both rfc5766-turn-server and coturn.
 	# You enable this by specifying the address of your TURN REST API backend,
 	# the HTTP method to use (GET or POST) and, if required, the API key Janus
-	# must provide. Notice that the 'opaque_id' provided via Janus API will be
-	# used as the username for a specific PeerConnection by default; if that one
-	# is missing, the 'session_id' will be used as the username instead.
+	# must provide. The timeout can be configured in seconds, with a default of
+	# 10 seconds and a minimum of 1 second. Notice that the 'opaque_id' provided
+	# via Janus API will be used as the username for a specific PeerConnection
+	# by default; if that one is missing, the 'session_id' will be used as the
+	# username instead.
 	#turn_rest_api = "http://yourbackend.com/path/to/api"
 	#turn_rest_api_key = "anyapikeyyoumayhaveset"
 	#turn_rest_api_method = "GET"
+	#turn_rest_api_timeout = 10
 
 	# You can also choose which interfaces should be explicitly used by the
 	# gateway for the purpose of ICE candidates gathering, thus excluding

@@ -82,6 +82,12 @@ char *janus_random_uuid(void);
  * @returns A pointer to a guint64 number, if successful, NULL otherwise */
 guint64 *janus_uint64_dup(guint64 num);
 
+/*! \brief Helper to hash a guint64 number to another guint64 number
+ * @note We currently only use for event handlers
+ * @param
+ * @returns The hashed number */
+guint64 janus_uint64_hash(guint64 num);
+
 /*! \brief Helper method to convert a string to a uint8_t
  * @note The value of \c num should be ignored, if the method returned an error
  * @param[in] str The string to convert
@@ -136,6 +142,13 @@ gboolean janus_flags_is_set(janus_flags *flags, gsize flag);
  * @returns An integer like the regular mkdir does
  * @note A failure may indicate that creating any of the subdirectories failed: some may still have been created */
 int janus_mkdir(const char *dir, mode_t mode);
+
+/*! \brief Helper to convert \c path relative to \c base_dir to absolute path.
+ *  If \c path already represents absolute path then just g_strdup it.
+ * @param[in] base_dir Path which will be prepended to \c path if it's relative
+ * @param[in] path Some relative or absolute path
+ * @returns g_strdup'ed absolute path. Should be freed with g_free() when no longer needed */
+gchar *janus_make_absolute_path(const gchar *base_dir, const gchar *path);
 
 /*! \brief Ugly and dirty helper to quickly get the payload type associated with a codec in an SDP
  * @param sdp The SDP to parse
